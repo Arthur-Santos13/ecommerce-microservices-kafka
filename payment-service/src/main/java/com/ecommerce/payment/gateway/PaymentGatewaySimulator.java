@@ -2,6 +2,7 @@ package com.ecommerce.payment.gateway;
 
 import com.ecommerce.payment.domain.Payment;
 import com.ecommerce.payment.domain.PaymentMethod;
+import com.ecommerce.payment.exception.GatewayUnavailableException;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -10,16 +11,23 @@ import java.math.BigDecimal;
 public class PaymentGatewaySimulator {
 
     private static final BigDecimal HIGH_VALUE_THRESHOLD = new BigDecimal("1000.00");
+    private static final double GATEWAY_UNAVAILABLE_RATE = 0.05;
 
     /**
      * Simulates an external payment gateway call.
      *
      * Rules:
-     * - PIX always succeeds (instant payment rail, no card network involved)
-     * - Amounts above 1000 have a 30% failure rate (risk of decline on high-value transactions)
-     * - All other cases have a 10% failure rate
+     * - 5% chance of transient gateway unavailability (triggers retry)
+     * - PIX always succeeds (instant payment rail)
+     * - Amounts above 1000 have a 30% decline rate
+     * - All other cases have a 10% decline rate
      */
     public GatewayResult process(Payment payment) {
+        if (Math.random() < GATEWAY_UNAVAILABLE_RATE) {
+            throw new GatewayUnavailableException(
+                    "Payment gateway temporarily unavailable — orderId=" + payment.getOrderId());
+        }
+
         if (payment.getMethod() == PaymentMethod.PIX) {
             return GatewayResult.approved("PIX payment confirmed instantly");
         }
