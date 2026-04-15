@@ -1,15 +1,20 @@
 package com.ecommerce.payment.listener;
 
 import com.ecommerce.payment.event.OrderCreatedEvent;
+import com.ecommerce.payment.service.PaymentService;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class OrderCreatedEventHandler {
 
     private static final Logger log = LoggerFactory.getLogger(OrderCreatedEventHandler.class);
+
+    private final PaymentService paymentService;
 
     @KafkaListener(
             topics = "${kafka.topics.order-created}",
@@ -17,10 +22,8 @@ public class OrderCreatedEventHandler {
             containerFactory = "kafkaListenerContainerFactory"
     )
     public void handle(OrderCreatedEvent event) {
-        log.info("Received OrderCreatedEvent: orderId={}, customerId={}, totalAmount={}, items={}",
-                event.orderId(),
-                event.customerId(),
-                event.totalAmount(),
-                event.items() != null ? event.items().size() : 0);
+        log.info("Received OrderCreatedEvent: orderId={}, customerId={}, totalAmount={}",
+                event.orderId(), event.customerId(), event.totalAmount());
+        paymentService.processFromEvent(event);
     }
 }
