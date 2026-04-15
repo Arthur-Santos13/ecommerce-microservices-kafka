@@ -36,6 +36,7 @@ spring:
 kafka:
   topics:
     order-created: order.created
+    order-created-dlt: order.created-dlt
     payment-confirmed: payment.confirmed
     payment-failed: payment.failed
 

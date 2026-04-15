@@ -161,4 +161,28 @@ public class PaymentServiceImpl implements PaymentService {
                 .map(PaymentResponse::from)
                 .toList();
     }
+
+    @Override
+    @Transactional
+    public void processFromDlt(OrderCreatedEvent event) {
+        paymentRepository.findByOrderId(event.orderId())
+                .ifPresentOrElse(
+                        existing -> log.warn("Payment already persisted for DLT event: orderId={}, status={}",
+                                event.orderId(), existing.getStatus()),
+                        () -> {
+                            Payment payment = Payment.builder()
+                                    .orderId(event.orderId())
+                                    .customerId(event.customerId())
+                                    .amount(event.totalAmount())
+                                    .method(PaymentMethod.CREDIT_CARD)
+                                    .status(PaymentStatus.FAILED)
+                                    .failureReason("Payment processing failed after all retries")
+                                    .build();
+                            payment = paymentRepository.save(payment);
+                            recordTransaction(payment);
+                            eventPublisher.publishPaymentFailed(PaymentFailedEvent.from(payment));
+                            log.error("Payment marked as FAILED via DLT: orderId={}", event.orderId());
+                        }
+                );
+    }
 }
