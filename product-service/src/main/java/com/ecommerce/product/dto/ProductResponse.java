@@ -12,19 +12,31 @@ public record ProductResponse(
         String description,
         BigDecimal price,
         String sku,
+        Long version,
         Integer quantityInStock,
+        Integer reservedQuantity,
+        Integer availableQuantity,
+        CategoryResponse category,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
 
     public static ProductResponse from(Product product) {
+        Integer qty      = product.getInventory() != null ? product.getInventory().getQuantityInStock() : 0;
+        Integer reserved = product.getInventory() != null ? product.getInventory().getReservedQuantity() : 0;
+        CategoryResponse cat = product.getCategory() != null
+                ? CategoryResponse.from(product.getCategory()) : null;
         return new ProductResponse(
                 product.getId(),
                 product.getName(),
                 product.getDescription(),
                 product.getPrice(),
                 product.getSku(),
-                product.getQuantityInStock(),
+                product.getVersion(),
+                qty,
+                reserved,
+                qty - reserved,
+                cat,
                 product.getCreatedAt(),
                 product.getUpdatedAt()
         );

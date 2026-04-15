@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -13,6 +14,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "products")
+@SQLRestriction("deleted_at IS NULL")
 @Getter
 @Setter
 @Builder
@@ -42,17 +44,32 @@ public class Product {
     private String sku;
 
     /**
-     * Basic in-stock quantity for Phase 4 Part 1.
-     * Will be refactored into a dedicated Inventory aggregate in Phase 4 Part 2.
+     * Inventory is kept as an inner module of product-service (see Inventory.java).
+     * FetchType.EAGER avoids N+1 on list endpoints; will be revisited with @EntityGraph
+     * in the observability phase when query profiling is introduced.
      */
-    @Column(nullable = false)
-    private Integer quantityInStock;
+    @OneToOne(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.EAGER, optional = true)
+    private Inventory inventory;
+
+    /**
+     * Optional category — products do not require a category.
+     * ON DELETE SET NULL at DB level (see V4 migration).
+     */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "category_id")
+    private Category category;
+
+    @Version
+    private Long version;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     @PrePersist
     protected void onCreate() {
