@@ -7,6 +7,7 @@ import com.ecommerce.product.dto.PageResponse;
 import com.ecommerce.product.dto.ProductFilter;
 import com.ecommerce.product.dto.ProductRequest;
 import com.ecommerce.product.dto.ProductResponse;
+import com.ecommerce.product.exception.BusinessRuleViolationException;
 import com.ecommerce.product.exception.CategoryNotFoundException;
 import com.ecommerce.product.exception.DuplicateSkuException;
 import com.ecommerce.product.exception.ProductNotFoundException;
@@ -99,6 +100,12 @@ public class ProductServiceImpl implements ProductService {
         product.setCategory(resolveCategory(request.categoryId()));
 
         if (product.getInventory() != null) {
+            int reserved = product.getInventory().getReservedQuantity();
+            if (request.quantityInStock() < reserved) {
+                throw new BusinessRuleViolationException(
+                        "Cannot set stock to " + request.quantityInStock()
+                                + ": " + reserved + " units are currently reserved");
+            }
             product.getInventory().setQuantityInStock(request.quantityInStock());
             inventoryRepository.save(product.getInventory());
         }
@@ -109,9 +116,16 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional
     public void delete(UUID id) {
-        if (!productRepository.existsById(id)) {
-            throw new ProductNotFoundException(id);
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ProductNotFoundException(id));
+
+        if (product.getInventory() != null && product.getInventory().getReservedQuantity() > 0) {
+            throw new BusinessRuleViolationException(
+                    "Cannot delete product " + id + ": "
+                            + product.getInventory().getReservedQuantity()
+                            + " units are currently reserved");
         }
+
         productRepository.deleteById(id);
     }
 
