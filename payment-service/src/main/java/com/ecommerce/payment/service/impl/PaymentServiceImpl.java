@@ -1,14 +1,22 @@
-package com.ecommerce.payment.service.impl;
+﻿package com.ecommerce.payment.service.impl;
 
 import com.ecommerce.payment.domain.Payment;
+import com.ecommerce.payment.domain.PaymentMethod;
 import com.ecommerce.payment.domain.PaymentStatus;
+import com.ecommerce.payment.domain.PaymentTransaction;
 import com.ecommerce.payment.dto.PaymentRequest;
 import com.ecommerce.payment.dto.PaymentResponse;
+import com.ecommerce.payment.event.OrderCreatedEvent;
 import com.ecommerce.payment.exception.BusinessRuleViolationException;
 import com.ecommerce.payment.exception.PaymentNotFoundException;
+import com.ecommerce.payment.gateway.GatewayResult;
+import com.ecommerce.payment.gateway.PaymentGatewaySimulator;
 import com.ecommerce.payment.repository.PaymentRepository;
+import com.ecommerce.payment.repository.PaymentTransactionRepository;
 import com.ecommerce.payment.service.PaymentService;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,7 +27,11 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PaymentServiceImpl implements PaymentService {
 
+    private static final Logger log = LoggerFactory.getLogger(PaymentServiceImpl.class);
+
     private final PaymentRepository paymentRepository;
+    private final PaymentTransactionRepository transactionRepository;
+    private final PaymentGatewaySimulator gatewaySimulator;
 
     @Override
     @Transactional
@@ -37,7 +49,62 @@ public class PaymentServiceImpl implements PaymentService {
                 .status(PaymentStatus.PENDING)
                 .build();
 
-        return PaymentResponse.from(paymentRepository.save(payment));
+        payment = paymentRepository.save(payment);
+        recordTransaction(payment);
+        return PaymentResponse.from(payment);
+    }
+
+    @Override
+    @Transactional
+    public PaymentResponse processFromEvent(OrderCreatedEvent event) {
+        return paymentRepository.findByOrderId(event.orderId())
+                .map(existing -> {
+                    log.warn("Payment already exists for orderId={}, skipping processing", event.orderId());
+                    return PaymentResponse.from(existing);
+                })
+                .orElseGet(() -> doProcess(event));
+    }
+
+    private PaymentResponse doProcess(OrderCreatedEvent event) {
+        Payment payment = Payment.builder()
+                .orderId(event.orderId())
+                .customerId(event.customerId())
+                .amount(event.totalAmount())
+                .method(PaymentMethod.CREDIT_CARD)
+                .status(PaymentStatus.PENDING)
+                .build();
+        payment = paymentRepository.save(payment);
+        recordTransaction(payment);
+
+        payment.setStatus(PaymentStatus.PROCESSING);
+        payment = paymentRepository.save(payment);
+        recordTransaction(payment);
+
+        GatewayResult result = gatewaySimulator.process(payment);
+
+        if (result.approved()) {
+            payment.setStatus(PaymentStatus.PAID);
+        } else {
+            payment.setStatus(PaymentStatus.FAILED);
+            payment.setFailureReason(result.message());
+        }
+
+        payment = paymentRepository.save(payment);
+        recordTransaction(payment);
+
+        log.info("Payment processed: orderId={}, status={}, message={}",
+                event.orderId(), payment.getStatus(), result.message());
+
+        return PaymentResponse.from(payment);
+    }
+
+    private void recordTransaction(Payment payment) {
+        transactionRepository.save(PaymentTransaction.builder()
+                .paymentId(payment.getId())
+                .orderId(payment.getOrderId())
+                .amount(payment.getAmount())
+                .status(payment.getStatus())
+                .build());
     }
 
     @Override
