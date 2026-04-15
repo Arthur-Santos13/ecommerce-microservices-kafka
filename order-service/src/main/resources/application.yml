@@ -5,7 +5,7 @@ spring:
   application:
     name: order-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/order_db
+    url: jdbc:postgresql://localhost:5433/order_db
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
@@ -29,3 +29,7 @@ management:
   endpoint:
     health:
       show-details: always
+
+services:
+  product:
+    url: ${PRODUCT_SERVICE_URL:http://localhost:8081}
