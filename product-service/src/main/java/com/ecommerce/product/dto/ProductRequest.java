@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 public record ProductRequest(
 
@@ -27,5 +28,8 @@ public record ProductRequest(
 
         @NotNull(message = "Quantity in stock is required")
         @Min(value = 0, message = "Quantity in stock must be zero or greater")
-        Integer quantityInStock
+        Integer quantityInStock,
+
+        /** Optional — links the product to a category. Null is allowed. */
+        UUID categoryId
 ) {}

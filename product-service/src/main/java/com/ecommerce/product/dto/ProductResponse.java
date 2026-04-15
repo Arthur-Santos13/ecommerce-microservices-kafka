@@ -15,6 +15,7 @@ public record ProductResponse(
         Integer quantityInStock,
         Integer reservedQuantity,
         Integer availableQuantity,
+        CategoryResponse category,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
@@ -22,6 +23,8 @@ public record ProductResponse(
     public static ProductResponse from(Product product) {
         Integer qty      = product.getInventory() != null ? product.getInventory().getQuantityInStock() : 0;
         Integer reserved = product.getInventory() != null ? product.getInventory().getReservedQuantity() : 0;
+        CategoryResponse cat = product.getCategory() != null
+                ? CategoryResponse.from(product.getCategory()) : null;
         return new ProductResponse(
                 product.getId(),
                 product.getName(),
@@ -31,6 +34,7 @@ public record ProductResponse(
                 qty,
                 reserved,
                 qty - reserved,
+                cat,
                 product.getCreatedAt(),
                 product.getUpdatedAt()
         );

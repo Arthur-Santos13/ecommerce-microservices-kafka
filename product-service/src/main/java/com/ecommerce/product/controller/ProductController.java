@@ -38,9 +38,10 @@ public class ProductController {
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,
             @RequestParam(required = false) Boolean inStock,
+            @RequestParam(required = false) UUID categoryId,
             @PageableDefault(size = 20, sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
 
-        ProductFilter filter = new ProductFilter(name, minPrice, maxPrice, inStock);
+        ProductFilter filter = new ProductFilter(name, minPrice, maxPrice, inStock, categoryId);
         return ResponseEntity.ok(productService.findAll(filter, pageable));
     }
 
