@@ -40,6 +40,20 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler(ProductServiceException.class)
+    public ResponseEntity<ErrorResponse> handleProductService(
+            ProductServiceException ex, HttpServletRequest request) {
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_GATEWAY)
+                .body(ErrorResponse.of(
+                        HttpStatus.BAD_GATEWAY.value(),
+                        "Bad Gateway",
+                        ex.getMessage(),
+                        request.getRequestURI()
+                ));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(
             MethodArgumentNotValidException ex, HttpServletRequest request) {
