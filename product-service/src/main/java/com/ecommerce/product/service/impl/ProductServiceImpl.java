@@ -7,6 +7,10 @@ import com.ecommerce.product.dto.PageResponse;
 import com.ecommerce.product.dto.ProductFilter;
 import com.ecommerce.product.dto.ProductRequest;
 import com.ecommerce.product.dto.ProductResponse;
+import com.ecommerce.product.event.ProductCreatedEvent;
+import com.ecommerce.product.event.ProductDeletedEvent;
+import com.ecommerce.product.event.ProductEventPublisher;
+import com.ecommerce.product.event.ProductUpdatedEvent;
 import com.ecommerce.product.exception.BusinessRuleViolationException;
 import com.ecommerce.product.exception.CategoryNotFoundException;
 import com.ecommerce.product.exception.DuplicateSkuException;
@@ -24,6 +28,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Service
@@ -33,6 +38,7 @@ public class ProductServiceImpl implements ProductService {
     private final ProductRepository productRepository;
     private final InventoryRepository inventoryRepository;
     private final CategoryRepository categoryRepository;
+    private final ProductEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -82,6 +88,7 @@ public class ProductServiceImpl implements ProductService {
         Inventory savedInventory = inventoryRepository.save(inventory);
         saved.setInventory(savedInventory);
 
+        eventPublisher.publishProductCreated(ProductCreatedEvent.from(saved));
         return ProductResponse.from(saved);
     }
 
@@ -116,7 +123,9 @@ public class ProductServiceImpl implements ProductService {
             inventoryRepository.save(product.getInventory());
         }
 
-        return ProductResponse.from(productRepository.save(product));
+        Product saved = productRepository.save(product);
+        eventPublisher.publishProductUpdated(ProductUpdatedEvent.from(saved));
+        return ProductResponse.from(saved);
     }
 
     @Override
@@ -133,8 +142,9 @@ public class ProductServiceImpl implements ProductService {
                             + " units are currently reserved");
         }
 
-        product.setDeletedAt(java.time.LocalDateTime.now());
+        product.setDeletedAt(LocalDateTime.now());
         productRepository.save(product);
+        eventPublisher.publishProductDeleted(ProductDeletedEvent.of(product.getId(), product.getSku()));
     }
 
     @Override

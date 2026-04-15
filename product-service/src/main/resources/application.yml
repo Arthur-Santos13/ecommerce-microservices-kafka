@@ -31,3 +31,10 @@ management:
   endpoint:
     health:
       show-details: always
+
+kafka:
+  bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  topics:
+    product-created: product.created
+    product-updated: product.updated
+    product-deleted: product.deleted
