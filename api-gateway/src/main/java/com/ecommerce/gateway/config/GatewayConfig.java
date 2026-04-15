@@ -8,14 +8,13 @@ import org.springframework.context.annotation.Configuration;
 /**
  * Programmatic gateway route configuration.
  *
- * <p>Routes are primarily declared in {@code application.yml} for readability.
+ * <p>Routes and circuit breaker filters are declared in {@code application.yml}.
  * This class is the anchor for routes that require complex logic not expressible
  * in YAML — e.g., custom predicates, conditional routing, or dynamic route
  * registration planned for later phases.</p>
  *
  * <p>Future additions (do NOT implement ahead of schedule):
  * <ul>
- *   <li>Phase 9  — circuit breaker filter (Resilience4j)</li>
  *   <li>Phase 9.5 — lb:// URIs after service discovery is introduced</li>
  *   <li>Phase 12 — JWT authentication filter</li>
  * </ul>
