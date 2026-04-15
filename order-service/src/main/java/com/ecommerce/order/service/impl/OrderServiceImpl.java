@@ -11,6 +11,7 @@ import com.ecommerce.order.dto.OrderResponse;
 import com.ecommerce.order.event.OrderCreatedEvent;
 import com.ecommerce.order.event.OrderEventPublisher;
 import com.ecommerce.order.exception.BusinessRuleViolationException;
+import com.ecommerce.order.exception.KafkaPublishException;
 import com.ecommerce.order.exception.OrderNotFoundException;
 import com.ecommerce.order.exception.ProductServiceException;
 import com.ecommerce.order.repository.OrderRepository;
@@ -83,7 +84,14 @@ public class OrderServiceImpl implements OrderService {
 
         order.setTotalAmount(total);
         Order saved = orderRepository.save(order);
-        eventPublisher.publishOrderCreated(OrderCreatedEvent.from(saved));
+
+        try {
+            eventPublisher.publishOrderCreated(OrderCreatedEvent.from(saved));
+        } catch (KafkaPublishException ex) {
+            rollbackReservations(reservedItems);
+            throw ex;
+        }
+
         return OrderResponse.from(saved);
     }
 
