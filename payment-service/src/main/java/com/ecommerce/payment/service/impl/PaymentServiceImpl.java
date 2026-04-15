@@ -11,8 +11,13 @@ import com.ecommerce.payment.exception.BusinessRuleViolationException;
 import com.ecommerce.payment.exception.PaymentNotFoundException;
 import com.ecommerce.payment.gateway.GatewayResult;
 import com.ecommerce.payment.gateway.PaymentGatewaySimulator;
+import com.ecommerce.payment.domain.ProcessedEvent;
+import com.ecommerce.payment.event.PaymentConfirmedEvent;
+import com.ecommerce.payment.event.PaymentEventPublisher;
+import com.ecommerce.payment.event.PaymentFailedEvent;
 import com.ecommerce.payment.repository.PaymentRepository;
 import com.ecommerce.payment.repository.PaymentTransactionRepository;
+import com.ecommerce.payment.repository.ProcessedEventRepository;
 import com.ecommerce.payment.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -31,7 +36,9 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final PaymentTransactionRepository transactionRepository;
+    private final ProcessedEventRepository processedEventRepository;
     private final PaymentGatewaySimulator gatewaySimulator;
+    private final PaymentEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -57,12 +64,27 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public PaymentResponse processFromEvent(OrderCreatedEvent event) {
-        return paymentRepository.findByOrderId(event.orderId())
+        if (processedEventRepository.existsByEventId(event.eventId())) {
+            log.warn("Duplicate event detected: eventId={}, orderId={} — skipping",
+                    event.eventId(), event.orderId());
+            return paymentRepository.findByOrderId(event.orderId())
+                    .map(PaymentResponse::from)
+                    .orElseThrow(() -> new PaymentNotFoundException("orderId", event.orderId()));
+        }
+
+        PaymentResponse response = paymentRepository.findByOrderId(event.orderId())
                 .map(existing -> {
                     log.warn("Payment already exists for orderId={}, skipping processing", event.orderId());
                     return PaymentResponse.from(existing);
                 })
                 .orElseGet(() -> doProcess(event));
+
+        processedEventRepository.save(ProcessedEvent.builder()
+                .eventId(event.eventId())
+                .eventType(event.eventType())
+                .build());
+
+        return response;
     }
 
     private PaymentResponse doProcess(OrderCreatedEvent event) {
@@ -91,6 +113,12 @@ public class PaymentServiceImpl implements PaymentService {
 
         payment = paymentRepository.save(payment);
         recordTransaction(payment);
+
+        if (result.approved()) {
+            eventPublisher.publishPaymentConfirmed(PaymentConfirmedEvent.from(payment));
+        } else {
+            eventPublisher.publishPaymentFailed(PaymentFailedEvent.from(payment));
+        }
 
         log.info("Payment processed: orderId={}, status={}, message={}",
                 event.orderId(), payment.getStatus(), result.message());
