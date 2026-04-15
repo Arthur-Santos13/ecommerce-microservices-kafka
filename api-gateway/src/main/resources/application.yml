@@ -29,6 +29,19 @@ spring:
               args:
                 name: X-Source-Service
                 value: api-gateway
+            - name: Retry
+              args:
+                retries: 2
+                statuses: BAD_GATEWAY,GATEWAY_TIMEOUT,SERVICE_UNAVAILABLE
+                methods: GET
+                backoff:
+                  firstBackoff: 500ms
+                  maxBackoff: 2000ms
+                  factor: 2
+            - name: CircuitBreaker
+              args:
+                name: product-service-cb
+                fallbackUri: forward:/fallback/products
 
         - id: order-service
           uri: ${ORDER_SERVICE_URL:http://localhost:8082}
@@ -39,6 +52,19 @@ spring:
               args:
                 name: X-Source-Service
                 value: api-gateway
+            - name: Retry
+              args:
+                retries: 2
+                statuses: BAD_GATEWAY,GATEWAY_TIMEOUT,SERVICE_UNAVAILABLE
+                methods: GET
+                backoff:
+                  firstBackoff: 500ms
+                  maxBackoff: 2000ms
+                  factor: 2
+            - name: CircuitBreaker
+              args:
+                name: order-service-cb
+                fallbackUri: forward:/fallback/orders
 
         - id: payment-service
           uri: ${PAYMENT_SERVICE_URL:http://localhost:8083}
@@ -49,6 +75,19 @@ spring:
               args:
                 name: X-Source-Service
                 value: api-gateway
+            - name: Retry
+              args:
+                retries: 2
+                statuses: BAD_GATEWAY,GATEWAY_TIMEOUT,SERVICE_UNAVAILABLE
+                methods: GET
+                backoff:
+                  firstBackoff: 500ms
+                  maxBackoff: 2000ms
+                  factor: 2
+            - name: CircuitBreaker
+              args:
+                name: payment-service-cb
+                fallbackUri: forward:/fallback/payments
 
       httpclient:
         connect-timeout: 2000       # ms — max time to establish a connection to a downstream service
@@ -66,7 +105,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info, gateway
+        include: health, info, gateway, circuitbreakers
   endpoint:
     health:
       show-details: always
@@ -76,3 +115,36 @@ management:
 logging:
   level:
     org.springframework.cloud.gateway: INFO
+
+resilience4j:
+  timelimiter:
+    instances:
+      product-service-cb:
+        timeout-duration: 3s
+      order-service-cb:
+        timeout-duration: 3s
+      payment-service-cb:
+        timeout-duration: 3s
+  circuitbreaker:
+    instances:
+      product-service-cb:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 5
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true
+      order-service-cb:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 5
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true
+      payment-service-cb:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 5
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true
