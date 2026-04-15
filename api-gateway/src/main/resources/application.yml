@@ -6,13 +6,73 @@ spring:
     name: api-gateway
   cloud:
     gateway:
-      routes: []
+      # ─── Default Filters (applied to every route) ──────────────────────────
+      # X-Api-Version is also injected by RequestTracingFilter at runtime.
+      # This YAML-level default ensures it appears even without the filter active.
+      default-filters:
+        - name: AddRequestHeader
+          args:
+            name: X-Api-Version
+            value: v1
+
+      # ─── Service Routes ────────────────────────────────────────────────────
+      # URIs are static (localhost) for now. Service discovery (Eureka / lb://)
+      # will be introduced in the operational phase (9.5).
+      routes:
+
+        - id: product-service
+          uri: ${PRODUCT_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/v1/products/**
+          filters:
+            - name: AddRequestHeader
+              args:
+                name: X-Source-Service
+                value: api-gateway
+
+        - id: order-service
+          uri: ${ORDER_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/v1/orders/**
+          filters:
+            - name: AddRequestHeader
+              args:
+                name: X-Source-Service
+                value: api-gateway
+
+        - id: payment-service
+          uri: ${PAYMENT_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/v1/payments/**
+          filters:
+            - name: AddRequestHeader
+              args:
+                name: X-Source-Service
+                value: api-gateway
+
+      httpclient:
+        connect-timeout: 2000       # ms — max time to establish a connection to a downstream service
+        response-timeout: 10s       # max time to wait for a response from a downstream service
+
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods: [ GET, POST, PUT, DELETE, PATCH, OPTIONS ]
+            allowedHeaders: "*"
+            maxAge: 3600
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health, info, gateway
   endpoint:
     health:
       show-details: always
+    gateway:
+      enabled: true   # exposes /actuator/gateway/routes for runtime inspection
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
