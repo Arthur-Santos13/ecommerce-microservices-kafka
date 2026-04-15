@@ -54,6 +54,20 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler(KafkaPublishException.class)
+    public ResponseEntity<ErrorResponse> handleKafkaPublish(
+            KafkaPublishException ex, HttpServletRequest request) {
+
+        return ResponseEntity
+                .status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ErrorResponse.of(
+                        HttpStatus.SERVICE_UNAVAILABLE.value(),
+                        "Service Unavailable",
+                        "Order could not be processed: event broker unavailable. Please try again.",
+                        request.getRequestURI()
+                ));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(
             MethodArgumentNotValidException ex, HttpServletRequest request) {
