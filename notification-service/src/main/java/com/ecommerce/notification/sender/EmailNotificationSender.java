@@ -2,6 +2,7 @@ package com.ecommerce.notification.sender;
 
 import com.ecommerce.notification.domain.NotificationChannel;
 import com.ecommerce.notification.dto.NotificationRequest;
+import com.ecommerce.notification.exception.NotificationDeliveryException;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,7 +43,8 @@ public class EmailNotificationSender implements NotificationSender {
         } catch (Exception ex) {
             log.error("Failed to send email: type={}, to={}, error={}",
                     request.type(), request.recipientEmail(), ex.getMessage());
-            throw ex;
+            throw new NotificationDeliveryException(
+                    "Failed to deliver email to " + request.recipientEmail() + ": " + ex.getMessage(), ex);
         }
     }
 
