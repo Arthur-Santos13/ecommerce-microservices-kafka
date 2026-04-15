@@ -33,6 +33,12 @@ public class KafkaConfig {
     @Value("${kafka.topics.payment-failed}")
     private String paymentFailedTopic;
 
+    @Value("${kafka.topics.order-confirmed}")
+    private String orderConfirmedTopic;
+
+    @Value("${kafka.topics.order-cancelled}")
+    private String orderCancelledTopic;
+
     @Bean
     public ConsumerFactory<String, Object> consumerFactory() {
         Map<String, Object> props = new HashMap<>();
@@ -72,6 +78,22 @@ public class KafkaConfig {
     @Bean
     public NewTopic paymentFailedTopic() {
         return TopicBuilder.name(paymentFailedTopic)
+                .partitions(1)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public NewTopic orderConfirmedTopic() {
+        return TopicBuilder.name(orderConfirmedTopic)
+                .partitions(1)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public NewTopic orderCancelledTopic() {
+        return TopicBuilder.name(orderCancelledTopic)
                 .partitions(1)
                 .replicas(1)
                 .build();
