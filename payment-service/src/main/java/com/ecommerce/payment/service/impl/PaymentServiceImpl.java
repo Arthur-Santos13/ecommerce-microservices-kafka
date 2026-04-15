@@ -12,6 +12,9 @@ import com.ecommerce.payment.exception.PaymentNotFoundException;
 import com.ecommerce.payment.gateway.GatewayResult;
 import com.ecommerce.payment.gateway.PaymentGatewaySimulator;
 import com.ecommerce.payment.domain.ProcessedEvent;
+import com.ecommerce.payment.event.PaymentConfirmedEvent;
+import com.ecommerce.payment.event.PaymentEventPublisher;
+import com.ecommerce.payment.event.PaymentFailedEvent;
 import com.ecommerce.payment.repository.PaymentRepository;
 import com.ecommerce.payment.repository.PaymentTransactionRepository;
 import com.ecommerce.payment.repository.ProcessedEventRepository;
@@ -35,6 +38,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentTransactionRepository transactionRepository;
     private final ProcessedEventRepository processedEventRepository;
     private final PaymentGatewaySimulator gatewaySimulator;
+    private final PaymentEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -109,6 +113,12 @@ public class PaymentServiceImpl implements PaymentService {
 
         payment = paymentRepository.save(payment);
         recordTransaction(payment);
+
+        if (result.approved()) {
+            eventPublisher.publishPaymentConfirmed(PaymentConfirmedEvent.from(payment));
+        } else {
+            eventPublisher.publishPaymentFailed(PaymentFailedEvent.from(payment));
+        }
 
         log.info("Payment processed: orderId={}, status={}, message={}",
                 event.orderId(), payment.getStatus(), result.message());
