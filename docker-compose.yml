@@ -1,0 +1,63 @@
+version: '3.8'
+
+# NOTE: Este é o docker-compose inicial com apenas a infraestrutura de dados.
+# Kafka/Zookeeper e os próprios serviços serão adicionados nas fases seguintes.
+
+services:
+
+  # ─── Databases (one per service - Database-per-Service pattern) ───────────
+
+  product-db:
+    image: postgres:16-alpine
+    container_name: product-db
+    environment:
+      POSTGRES_DB: product_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - product-db-data:/var/lib/postgresql/data
+    networks:
+      - ecommerce-net
+
+  order-db:
+    image: postgres:16-alpine
+    container_name: order-db
+    environment:
+      POSTGRES_DB: order_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - order-db-data:/var/lib/postgresql/data
+    networks:
+      - ecommerce-net
+
+  payment-db:
+    image: postgres:16-alpine
+    container_name: payment-db
+    environment:
+      POSTGRES_DB: payment_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - payment-db-data:/var/lib/postgresql/data
+    networks:
+      - ecommerce-net
+
+# ─── Volumes ────────────────────────────────────────────────────────────────
+
+volumes:
+  product-db-data:
+  order-db-data:
+  payment-db-data:
+
+# ─── Networks ───────────────────────────────────────────────────────────────
+
+networks:
+  ecommerce-net:
+    driver: bridge
