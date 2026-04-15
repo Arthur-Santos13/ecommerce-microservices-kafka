@@ -14,6 +14,7 @@ public record OrderResponse(
         OrderStatus status,
         BigDecimal totalAmount,
         List<OrderItemResponse> items,
+        String failureReason,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
@@ -28,6 +29,7 @@ public record OrderResponse(
                 order.getStatus(),
                 order.getTotalAmount(),
                 items,
+                order.getFailureReason(),
                 order.getCreatedAt(),
                 order.getUpdatedAt()
         );

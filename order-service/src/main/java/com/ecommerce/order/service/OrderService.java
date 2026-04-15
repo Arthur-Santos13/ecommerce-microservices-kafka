@@ -15,4 +15,8 @@ public interface OrderService {
     List<OrderResponse> findByCustomer(UUID customerId);
 
     OrderResponse cancel(UUID id);
+
+    void onPaymentConfirmed(UUID orderId, String eventId);
+
+    void onPaymentFailed(UUID orderId, String eventId, String failureReason);
 }
