@@ -13,18 +13,24 @@ public record ProductResponse(
         BigDecimal price,
         String sku,
         Integer quantityInStock,
+        Integer reservedQuantity,
+        Integer availableQuantity,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
 
     public static ProductResponse from(Product product) {
+        Integer qty      = product.getInventory() != null ? product.getInventory().getQuantityInStock() : 0;
+        Integer reserved = product.getInventory() != null ? product.getInventory().getReservedQuantity() : 0;
         return new ProductResponse(
                 product.getId(),
                 product.getName(),
                 product.getDescription(),
                 product.getPrice(),
                 product.getSku(),
-                product.getQuantityInStock(),
+                qty,
+                reserved,
+                qty - reserved,
                 product.getCreatedAt(),
                 product.getUpdatedAt()
         );

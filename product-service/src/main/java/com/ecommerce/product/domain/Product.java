@@ -42,11 +42,12 @@ public class Product {
     private String sku;
 
     /**
-     * Basic in-stock quantity for Phase 4 Part 1.
-     * Will be refactored into a dedicated Inventory aggregate in Phase 4 Part 2.
+     * Inventory is kept as an inner module of product-service (see Inventory.java).
+     * FetchType.EAGER avoids N+1 on list endpoints; will be revisited with @EntityGraph
+     * in the observability phase when query profiling is introduced.
      */
-    @Column(nullable = false)
-    private Integer quantityInStock;
+    @OneToOne(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.EAGER, optional = true)
+    private Inventory inventory;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

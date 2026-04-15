@@ -1,10 +1,12 @@
 package com.ecommerce.product.service.impl;
 
+import com.ecommerce.product.domain.Inventory;
 import com.ecommerce.product.domain.Product;
 import com.ecommerce.product.dto.ProductRequest;
 import com.ecommerce.product.dto.ProductResponse;
 import com.ecommerce.product.exception.DuplicateSkuException;
 import com.ecommerce.product.exception.ProductNotFoundException;
+import com.ecommerce.product.repository.InventoryRepository;
 import com.ecommerce.product.repository.ProductRepository;
 import com.ecommerce.product.service.ProductService;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +21,7 @@ import java.util.UUID;
 public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
+    private final InventoryRepository inventoryRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -49,10 +52,20 @@ public class ProductServiceImpl implements ProductService {
                 .description(request.description())
                 .price(request.price())
                 .sku(request.sku())
-                .quantityInStock(request.quantityInStock())
                 .build();
 
-        return ProductResponse.from(productRepository.save(product));
+        Product saved = productRepository.save(product);
+
+        Inventory inventory = Inventory.builder()
+                .product(saved)
+                .quantityInStock(request.quantityInStock())
+                .reservedQuantity(0)
+                .build();
+
+        Inventory savedInventory = inventoryRepository.save(inventory);
+        saved.setInventory(savedInventory);
+
+        return ProductResponse.from(saved);
     }
 
     @Override
@@ -72,7 +85,11 @@ public class ProductServiceImpl implements ProductService {
         product.setDescription(request.description());
         product.setPrice(request.price());
         product.setSku(request.sku());
-        product.setQuantityInStock(request.quantityInStock());
+
+        if (product.getInventory() != null) {
+            product.getInventory().setQuantityInStock(request.quantityInStock());
+            inventoryRepository.save(product.getInventory());
+        }
 
         return ProductResponse.from(productRepository.save(product));
     }
