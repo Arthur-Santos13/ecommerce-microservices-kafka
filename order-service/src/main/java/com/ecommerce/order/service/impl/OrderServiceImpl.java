@@ -9,6 +9,8 @@ import com.ecommerce.order.domain.ProcessedEvent;
 import com.ecommerce.order.dto.OrderItemRequest;
 import com.ecommerce.order.dto.OrderRequest;
 import com.ecommerce.order.dto.OrderResponse;
+import com.ecommerce.order.event.OrderCancelledEvent;
+import com.ecommerce.order.event.OrderConfirmedEvent;
 import com.ecommerce.order.event.OrderCreatedEvent;
 import com.ecommerce.order.event.OrderEventPublisher;
 import com.ecommerce.order.exception.BusinessRuleViolationException;
@@ -123,6 +125,8 @@ public class OrderServiceImpl implements OrderService {
                 .eventId(eventId)
                 .eventType("payment.confirmed")
                 .build());
+
+        eventPublisher.publishOrderConfirmed(OrderConfirmedEvent.from(order));
 
         log.info("Order {} confirmed after payment confirmation", orderId);
     }

@@ -8,6 +8,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.TimeUnit;
+import java.util.UUID;
 
 @Slf4j
 @Component
@@ -20,6 +21,12 @@ public class OrderEventPublisher {
 
     @Value("${kafka.topics.order-created}")
     private String orderCreatedTopic;
+
+    @Value("${kafka.topics.order-confirmed}")
+    private String orderConfirmedTopic;
+
+    @Value("${kafka.topics.order-cancelled}")
+    private String orderCancelledTopic;
 
     public void publishOrderCreated(OrderCreatedEvent event) {
         try {
@@ -35,6 +42,40 @@ public class OrderEventPublisher {
                     event.orderId(), ex.getMessage());
             throw new KafkaPublishException(
                     "Failed to publish order.created event for order " + event.orderId(), ex);
+        }
+    }
+
+    public void publishOrderConfirmed(OrderConfirmedEvent event) {
+        try {
+            var sendResult = kafkaTemplate
+                    .send(orderConfirmedTopic, event.orderId().toString(), event)
+                    .get(PUBLISH_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+            log.info("Published order.confirmed event for order {} to partition {}",
+                    event.orderId(),
+                    sendResult.getRecordMetadata().partition());
+        } catch (Exception ex) {
+            log.error("Failed to publish order.confirmed event for order {}: {}",
+                    event.orderId(), ex.getMessage());
+            throw new KafkaPublishException(
+                    "Failed to publish order.confirmed event for order " + event.orderId(), ex);
+        }
+    }
+
+    public void publishOrderCancelled(OrderCancelledEvent event) {
+        try {
+            var sendResult = kafkaTemplate
+                    .send(orderCancelledTopic, event.orderId().toString(), event)
+                    .get(PUBLISH_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+            log.info("Published order.cancelled event for order {} to partition {}",
+                    event.orderId(),
+                    sendResult.getRecordMetadata().partition());
+        } catch (Exception ex) {
+            log.error("Failed to publish order.cancelled event for order {}: {}",
+                    event.orderId(), ex.getMessage());
+            throw new KafkaPublishException(
+                    "Failed to publish order.cancelled event for order " + event.orderId(), ex);
         }
     }
 }
