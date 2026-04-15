@@ -32,13 +32,22 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 1
+        delivery.timeout.ms: 10000
+        request.timeout.ms: 5000
 
 kafka:
   topics:
     order-created: order.created
     order-created-dlt: order.created-dlt
     payment-confirmed: payment.confirmed
+    payment-confirmed-dlt: payment.confirmed-dlt
     payment-failed: payment.failed
+    payment-failed-dlt: payment.failed-dlt
 
 management:
   endpoints:
