@@ -6,8 +6,40 @@ spring:
     name: api-gateway
   cloud:
     gateway:
-      # Routes are defined in GatewayConfig — will be populated in the next commit
-      routes: []
+      # ─── Service Routes ────────────────────────────────────────────────────
+      # URIs are static (localhost) for now. Service discovery (Eureka / lb://)
+      # will be introduced in the operational phase (9.5).
+      routes:
+
+        - id: product-service
+          uri: ${PRODUCT_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/v1/products/**
+          filters:
+            - name: AddRequestHeader
+              args:
+                name: X-Source-Service
+                value: api-gateway
+
+        - id: order-service
+          uri: ${ORDER_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/v1/orders/**
+          filters:
+            - name: AddRequestHeader
+              args:
+                name: X-Source-Service
+                value: api-gateway
+
+        - id: payment-service
+          uri: ${PAYMENT_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/v1/payments/**
+          filters:
+            - name: AddRequestHeader
+              args:
+                name: X-Source-Service
+                value: api-gateway
 
       httpclient:
         connect-timeout: 2000       # ms — max time to establish a connection to a downstream service
