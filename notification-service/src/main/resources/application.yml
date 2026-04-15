@@ -19,6 +19,12 @@ spring:
     username: ${MAIL_USERNAME:}
     password: ${MAIL_PASSWORD:}
 
+kafka:
+  topics:
+    order-created: order.created
+    payment-confirmed: payment.confirmed
+    payment-failed: payment.failed
+
 management:
   endpoints:
     web:
