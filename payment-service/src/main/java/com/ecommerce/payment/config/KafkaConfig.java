@@ -21,6 +21,12 @@ public class KafkaConfig {
     @Value("${kafka.topics.order-created-dlt}")
     private String orderCreatedDltTopic;
 
+    @Value("${kafka.topics.payment-confirmed-dlt}")
+    private String paymentConfirmedDltTopic;
+
+    @Value("${kafka.topics.payment-failed-dlt}")
+    private String paymentFailedDltTopic;
+
     @Bean
     public NewTopic orderCreatedTopic() {
         return TopicBuilder.name(orderCreatedTopic)
@@ -48,6 +54,22 @@ public class KafkaConfig {
     @Bean
     public NewTopic orderCreatedDltTopic() {
         return TopicBuilder.name(orderCreatedDltTopic)
+                .partitions(1)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public NewTopic paymentConfirmedDltTopic() {
+        return TopicBuilder.name(paymentConfirmedDltTopic)
+                .partitions(1)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public NewTopic paymentFailedDltTopic() {
+        return TopicBuilder.name(paymentFailedDltTopic)
                 .partitions(1)
                 .replicas(1)
                 .build();
