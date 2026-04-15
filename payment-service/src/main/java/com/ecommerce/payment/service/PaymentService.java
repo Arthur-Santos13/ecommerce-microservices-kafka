@@ -13,6 +13,8 @@ public interface PaymentService {
 
     PaymentResponse processFromEvent(OrderCreatedEvent event);
 
+    void processFromDlt(OrderCreatedEvent event);
+
     PaymentResponse findById(UUID id);
 
     PaymentResponse findByOrderId(UUID orderId);

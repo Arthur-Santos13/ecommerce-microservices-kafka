@@ -1,36 +1,28 @@
 package com.ecommerce.payment.gateway;
 
 import com.ecommerce.payment.domain.Payment;
-import com.ecommerce.payment.domain.PaymentMethod;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
+import java.util.List;
 
+/**
+ * Routes payment processing to the appropriate {@link GatewayProvider}
+ * based on the payment method. Acts as a facade over provider-specific simulators.
+ */
 @Service
+@RequiredArgsConstructor
 public class PaymentGatewaySimulator {
 
-    private static final BigDecimal HIGH_VALUE_THRESHOLD = new BigDecimal("1000.00");
+    private final List<GatewayProvider> providers;
 
-    /**
-     * Simulates an external payment gateway call.
-     *
-     * Rules:
-     * - PIX always succeeds (instant payment rail, no card network involved)
-     * - Amounts above 1000 have a 30% failure rate (risk of decline on high-value transactions)
-     * - All other cases have a 10% failure rate
-     */
     public GatewayResult process(Payment payment) {
-        if (payment.getMethod() == PaymentMethod.PIX) {
-            return GatewayResult.approved("PIX payment confirmed instantly");
-        }
-
-        double failureRate = payment.getAmount().compareTo(HIGH_VALUE_THRESHOLD) > 0 ? 0.30 : 0.10;
-        boolean approved = Math.random() >= failureRate;
-
-        if (approved) {
-            return GatewayResult.approved("Payment approved by gateway");
-        }
-
-        return GatewayResult.declined("Payment declined: insufficient funds or card refused");
+        return providers.stream()
+                .filter(p -> p.supportedMethods().contains(payment.getMethod()))
+                .findFirst()
+                .map(p -> p.process(payment))
+                .orElseThrow(() -> new UnsupportedOperationException(
+                        "No gateway provider found for method: " + payment.getMethod()));
     }
 }
+
