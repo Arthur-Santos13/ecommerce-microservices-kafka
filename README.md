@@ -106,7 +106,7 @@ main          ← código estável / releases
 - [x] 1. Setup inicial do projeto
 - [x] 2. Documentação inicial
 - [x] 3. API Gateway + versionamento
-- [ ] 4. Product Service (base + domínio real)
+- [x] 4. Product Service (base + domínio real)
 - [ ] 5. Order Service (REST síncrono)
 - [ ] 6. Introdução do Kafka (fundação correta)
 - [ ] 7. Payment Service
