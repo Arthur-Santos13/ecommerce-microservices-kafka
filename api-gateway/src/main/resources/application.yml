@@ -6,13 +6,32 @@ spring:
     name: api-gateway
   cloud:
     gateway:
+      # Routes are defined in GatewayConfig — will be populated in the next commit
       routes: []
+
+      httpclient:
+        connect-timeout: 2000       # ms — max time to establish a connection to a downstream service
+        response-timeout: 10s       # max time to wait for a response from a downstream service
+
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods: [ GET, POST, PUT, DELETE, PATCH, OPTIONS ]
+            allowedHeaders: "*"
+            maxAge: 3600
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health, info, gateway
   endpoint:
     health:
       show-details: always
+    gateway:
+      enabled: true   # exposes /actuator/gateway/routes for runtime inspection
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
