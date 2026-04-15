@@ -149,8 +149,20 @@ public class OrderServiceImpl implements OrderService {
             return;
         }
 
-        order.setStatus(OrderStatus.PAYMENT_FAILED);
         order.setFailureReason(failureReason);
+        log.info("Payment failed for order {}: {}. Executing SAGA compensation (releasing stock).", orderId, failureReason);
+
+        order.getItems().forEach(item -> {
+            try {
+                productClient.releaseStock(item.getProductId(), item.getQuantity());
+                log.debug("Released stock for product {} (qty: {})", item.getProductId(), item.getQuantity());
+            } catch (Exception ex) {
+                log.error("Failed to release stock for product {} during SAGA compensation: {}",
+                        item.getProductId(), ex.getMessage());
+            }
+        });
+
+        order.setStatus(OrderStatus.CANCELLED);
         orderRepository.save(order);
 
         processedEventRepository.save(ProcessedEvent.builder()
@@ -158,7 +170,9 @@ public class OrderServiceImpl implements OrderService {
                 .eventType("payment.failed")
                 .build());
 
-        log.info("Order {} marked as PAYMENT_FAILED: reason={}", orderId, failureReason);
+        eventPublisher.publishOrderCancelled(OrderCancelledEvent.from(order));
+
+        log.info("Order {} cancelled after SAGA compensation (payment failure: {})", orderId, failureReason);
     }
 
     @Override
