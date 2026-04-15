@@ -3,6 +3,7 @@
 import com.ecommerce.payment.domain.Payment;
 import com.ecommerce.payment.domain.PaymentMethod;
 import com.ecommerce.payment.domain.PaymentStatus;
+import com.ecommerce.payment.domain.PaymentTransaction;
 import com.ecommerce.payment.dto.PaymentRequest;
 import com.ecommerce.payment.dto.PaymentResponse;
 import com.ecommerce.payment.event.OrderCreatedEvent;
@@ -11,6 +12,7 @@ import com.ecommerce.payment.exception.PaymentNotFoundException;
 import com.ecommerce.payment.gateway.GatewayResult;
 import com.ecommerce.payment.gateway.PaymentGatewaySimulator;
 import com.ecommerce.payment.repository.PaymentRepository;
+import com.ecommerce.payment.repository.PaymentTransactionRepository;
 import com.ecommerce.payment.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -28,6 +30,7 @@ public class PaymentServiceImpl implements PaymentService {
     private static final Logger log = LoggerFactory.getLogger(PaymentServiceImpl.class);
 
     private final PaymentRepository paymentRepository;
+    private final PaymentTransactionRepository transactionRepository;
     private final PaymentGatewaySimulator gatewaySimulator;
 
     @Override
@@ -46,7 +49,9 @@ public class PaymentServiceImpl implements PaymentService {
                 .status(PaymentStatus.PENDING)
                 .build();
 
-        return PaymentResponse.from(paymentRepository.save(payment));
+        payment = paymentRepository.save(payment);
+        recordTransaction(payment);
+        return PaymentResponse.from(payment);
     }
 
     @Override
@@ -69,9 +74,11 @@ public class PaymentServiceImpl implements PaymentService {
                 .status(PaymentStatus.PENDING)
                 .build();
         payment = paymentRepository.save(payment);
+        recordTransaction(payment);
 
         payment.setStatus(PaymentStatus.PROCESSING);
         payment = paymentRepository.save(payment);
+        recordTransaction(payment);
 
         GatewayResult result = gatewaySimulator.process(payment);
 
@@ -83,10 +90,21 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         payment = paymentRepository.save(payment);
+        recordTransaction(payment);
+
         log.info("Payment processed: orderId={}, status={}, message={}",
                 event.orderId(), payment.getStatus(), result.message());
 
         return PaymentResponse.from(payment);
+    }
+
+    private void recordTransaction(Payment payment) {
+        transactionRepository.save(PaymentTransaction.builder()
+                .paymentId(payment.getId())
+                .orderId(payment.getOrderId())
+                .amount(payment.getAmount())
+                .status(payment.getStatus())
+                .build());
     }
 
     @Override
