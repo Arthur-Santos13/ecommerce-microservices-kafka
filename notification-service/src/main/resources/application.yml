@@ -12,12 +12,18 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
-        spring.json.trusted.packages: "com.ecommerce.*"
+        spring.json.trusted.packages: "*"
   mail:
     host: ${MAIL_HOST:localhost}
     port: ${MAIL_PORT:1025}
     username: ${MAIL_USERNAME:}
     password: ${MAIL_PASSWORD:}
+
+kafka:
+  topics:
+    order-created: order.created
+    payment-confirmed: payment.confirmed
+    payment-failed: payment.failed
 
 management:
   endpoints:
