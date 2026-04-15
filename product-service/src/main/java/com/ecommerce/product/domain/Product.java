@@ -49,6 +49,14 @@ public class Product {
     @OneToOne(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.EAGER, optional = true)
     private Inventory inventory;
 
+    /**
+     * Optional category — products do not require a category.
+     * ON DELETE SET NULL at DB level (see V4 migration).
+     */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "category_id")
+    private Category category;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

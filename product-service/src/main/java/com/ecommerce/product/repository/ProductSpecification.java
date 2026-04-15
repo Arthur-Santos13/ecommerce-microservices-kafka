@@ -1,5 +1,6 @@
 package com.ecommerce.product.repository;
 
+import com.ecommerce.product.domain.Category;
 import com.ecommerce.product.domain.Inventory;
 import com.ecommerce.product.domain.Product;
 import com.ecommerce.product.dto.ProductFilter;
@@ -9,6 +10,7 @@ import jakarta.persistence.criteria.JoinType;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 public class ProductSpecification {
 
@@ -25,6 +27,13 @@ public class ProductSpecification {
 
     public static Specification<Product> priceLessThanOrEqual(BigDecimal max) {
         return (root, query, cb) -> cb.lessThanOrEqualTo(root.get("price"), max);
+    }
+
+    public static Specification<Product> hasCategory(UUID categoryId) {
+        return (root, query, cb) -> {
+            Join<Product, Category> cat = root.join("category", JoinType.INNER);
+            return cb.equal(cat.get("id"), categoryId);
+        };
     }
 
     /**
@@ -48,6 +57,7 @@ public class ProductSpecification {
                 .where(filter.name() != null ? nameLike(filter.name()) : null)
                 .and(filter.minPrice() != null ? priceGreaterThanOrEqual(filter.minPrice()) : null)
                 .and(filter.maxPrice() != null ? priceLessThanOrEqual(filter.maxPrice()) : null)
-                .and(Boolean.TRUE.equals(filter.inStock()) ? inStock() : null);
+                .and(Boolean.TRUE.equals(filter.inStock()) ? inStock() : null)
+                .and(filter.categoryId() != null ? hasCategory(filter.categoryId()) : null);
     }
 }
