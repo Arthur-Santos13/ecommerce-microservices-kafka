@@ -37,6 +37,9 @@ public class Order {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal totalAmount;
 
+    @Column(length = 500)
+    private String failureReason;
+
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @Builder.Default
     private List<OrderItem> items = new ArrayList<>();
