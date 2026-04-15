@@ -19,4 +19,6 @@ public interface ProductService {
     ProductResponse update(UUID id, ProductRequest request);
 
     void delete(UUID id);
+
+    ProductResponse restore(UUID id);
 }
