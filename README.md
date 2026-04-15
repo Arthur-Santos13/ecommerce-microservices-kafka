@@ -6,29 +6,30 @@ Plataforma de e-commerce construída com arquitetura de microsserviços, comunic
 
 ## Arquitetura
 
+Diagrama detalhado, padrões de comunicação e decisões de design: [docs/architecture.md](./docs/architecture.md)
+
 ```
-                        ┌─────────────────┐
-                        │   API Gateway   │  :8080
-                        │ (Spring Cloud)  │
-                        └────────┬────────┘
-               ┌─────────────────┼─────────────────┐
-               ▼                 ▼                 ▼
-    ┌──────────────────┐ ┌──────────────┐ ┌──────────────────┐
-    │ product-service  │ │order-service │ │ payment-service  │
-    │     :8081        │ │    :8082     │ │      :8083       │
-    │  [product_db]    │ │ [order_db]   │ │  [payment_db]    │
-    └──────────────────┘ └──────┬───────┘ └────────┬─────────┘
-                                │                   │
-                        ┌───────▼───────────────────▼───────┐
-                        │            Apache Kafka            │
-                        │              :9092                 │
-                        └───────────────────┬───────────────┘
-                                            ▼
-                                ┌───────────────────────┐
-                                │  notification-service  │
-                                │         :8084          │
-                                └───────────────────────┘
+  Cliente
+     │ HTTP
+     ▼
+  API Gateway :8080
+     ├──► product-service :8081  [product_db]
+     ├──► order-service   :8082  [order_db]
+     └──► payment-service :8083  [payment_db]
+
+  order-service / payment-service
+     └──► Apache Kafka :9092
+               └──► notification-service :8084
 ```
+
+## Documentação
+
+| Documento | Descrição |
+|-----------|-----------|
+| [docs/architecture.md](./docs/architecture.md) | Diagrama completo, comunicação síncrona/assíncrona, decisões de design |
+| [docs/domain.md](./docs/domain.md) | Bounded contexts, responsabilidades, fluxos e eventos de domínio |
+
+---
 
 ## Microsserviços
 
@@ -103,7 +104,7 @@ main          ← código estável / releases
 ## Roadmap
 
 - [x] 1. Setup inicial do projeto
-- [ ] 2. Documentação inicial
+- [x] 2. Documentação inicial
 - [ ] 3. API Gateway + versionamento
 - [ ] 4. Product Service (base + domínio real)
 - [ ] 5. Order Service (REST síncrono)
