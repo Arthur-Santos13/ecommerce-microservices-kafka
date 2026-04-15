@@ -57,6 +57,9 @@ public class Product {
     @JoinColumn(name = "category_id")
     private Category category;
 
+    @Version
+    private Long version;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
