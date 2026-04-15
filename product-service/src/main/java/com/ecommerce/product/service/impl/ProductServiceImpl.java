@@ -133,7 +133,20 @@ public class ProductServiceImpl implements ProductService {
                             + " units are currently reserved");
         }
 
-        productRepository.deleteById(id);
+        product.setDeletedAt(java.time.LocalDateTime.now());
+        productRepository.save(product);
+    }
+
+    @Override
+    @Transactional
+    @CachePut(value = "products", key = "#id")
+    public ProductResponse restore(UUID id) {
+        productRepository.findDeletedById(id)
+                .orElseThrow(() -> new ProductNotFoundException(id));
+        productRepository.restoreById(id);
+        Product restored = productRepository.findById(id)
+                .orElseThrow(() -> new ProductNotFoundException(id));
+        return ProductResponse.from(restored);
     }
 
     private Category resolveCategory(UUID categoryId) {
