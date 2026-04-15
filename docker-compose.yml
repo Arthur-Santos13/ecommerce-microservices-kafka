@@ -49,6 +49,29 @@ services:
     networks:
       - ecommerce-net
 
+  notification-db:
+    image: postgres:16-alpine
+    container_name: notification-db
+    environment:
+      POSTGRES_DB: notification_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5435:5432"
+    volumes:
+      - notification-db-data:/var/lib/postgresql/data
+    networks:
+      - ecommerce-net
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - ecommerce-net
+
   # ─── Messaging (Kafka + Zookeeper) ────────────────────────────────────────
 
   zookeeper:
@@ -86,6 +109,7 @@ volumes:
   product-db-data:
   order-db-data:
   payment-db-data:
+  notification-db-data:
 
 # ─── Networks ───────────────────────────────────────────────────────────────
 
