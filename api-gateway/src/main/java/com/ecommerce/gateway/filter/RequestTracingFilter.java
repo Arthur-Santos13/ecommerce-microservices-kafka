@@ -40,18 +40,28 @@ public class RequestTracingFilter implements GlobalFilter, Ordered {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String correlationId = resolveCorrelationId(exchange);
+        long start = System.currentTimeMillis();
 
         ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
                 .header(CORRELATION_ID_HEADER, correlationId)
                 .header(API_VERSION_HEADER, CURRENT_API_VERSION)
                 .build();
 
-        log.debug("Routing [{}] {} — correlationId={}",
+        log.info("[-->] {} {} correlationId={}",
                 mutatedRequest.getMethod(),
                 mutatedRequest.getURI().getPath(),
                 correlationId);
 
-        return chain.filter(exchange.mutate().request(mutatedRequest).build());
+        return chain.filter(exchange.mutate().request(mutatedRequest).build())
+                .doFinally(signal -> {
+                    long elapsed = System.currentTimeMillis() - start;
+                    int status = exchange.getResponse().getStatusCode() != null
+                            ? exchange.getResponse().getStatusCode().value() : 0;
+                    log.info("[<--] {} {} status={} elapsed={}ms correlationId={}",
+                            mutatedRequest.getMethod(),
+                            mutatedRequest.getURI().getPath(),
+                            status, elapsed, correlationId);
+                });
     }
 
     /**
