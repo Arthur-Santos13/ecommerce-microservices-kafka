@@ -51,7 +51,7 @@ public class RequestSanitizationFilter implements GlobalFilter, Ordered {
     private static final int MAX_HEADER_LENGTH = 8192;
 
     /** Headers that only the gateway may inject — must never come from external clients. */
-    private static final List<String> PROTECTED_HEADERS = List.of("X-User-Name", "X-User-Roles");
+    private static final List<String> PROTECTED_HEADERS = List.of("X-User-Name", "X-User-Roles", "X-Gateway-Secret");
 
     /** Rough pattern covering common SQL injection fragments. */
     private static final Pattern SQL_INJECTION_PATTERN = Pattern.compile(

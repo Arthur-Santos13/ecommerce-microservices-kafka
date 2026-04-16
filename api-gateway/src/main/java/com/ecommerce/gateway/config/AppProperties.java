@@ -17,10 +17,14 @@ public class AppProperties {
     private final Jwt jwt = new Jwt();
     private final Cors cors = new Cors();
     private final List<UserDefinition> users = new ArrayList<>();
+    /** Shared secret injected as X-Gateway-Secret on all proxied upstream requests. */
+    private String gatewaySecret = "dev-gateway-secret";
 
     public Jwt getJwt() { return jwt; }
     public Cors getCors() { return cors; }
     public List<UserDefinition> getUsers() { return users; }
+    public String getGatewaySecret() { return gatewaySecret; }
+    public void setGatewaySecret(String gatewaySecret) { this.gatewaySecret = gatewaySecret; }
 
     // ── JWT settings ──────────────────────────────────────────────────────────
 
