@@ -1,0 +1,26 @@
+# Shared configuration applied to ALL services
+# Properties here are overridden by service-specific files (e.g. order-service.yml)
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true
+  info:
+    env:
+      enabled: true
+
+logging:
+  level:
+    root: INFO
+    com.ecommerce: INFO

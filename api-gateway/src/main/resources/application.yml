@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: api-gateway
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
   cloud:
     gateway:
       # ─── Default Filters (applied to every route) ──────────────────────────
@@ -105,12 +107,28 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info, gateway, circuitbreakers
+        include: health, info, metrics, gateway, circuitbreakers
   endpoint:
     health:
       show-details: always
+      probes:
+        enabled: true
     gateway:
       enabled: true   # exposes /actuator/gateway/routes for runtime inspection
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: ${spring.application.name}
+    description: API Gateway - Routes and applies resilience policies across all services
+    version: '@project.version@'
 
 logging:
   level:

@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: payment-service
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
   datasource:
     url: jdbc:postgresql://localhost:5434/payment_db
     username: ${DB_USERNAME:postgres}
@@ -53,7 +55,23 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics
   endpoint:
     health:
       show-details: always
+      probes:
+        enabled: true
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: ${spring.application.name}
+    description: Payment Service - Processes payments and publishes payment events
+    version: '@project.version@'

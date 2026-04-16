@@ -12,6 +12,7 @@
     <description>E-commerce platform built with Spring Boot microservices and Kafka</description>
 
     <modules>
+        <module>config-server</module>
         <module>api-gateway</module>
         <module>product-service</module>
         <module>order-service</module>
