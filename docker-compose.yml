@@ -289,6 +289,10 @@ services:
       PAYMENT_SERVICE_URL: http://payment-service:8083
       LOGSTASH_HOST: logstash
       CONFIG_SERVER_URL: http://config-server:8888
+      # JWT — override with a strong random secret in production
+      JWT_SECRET: ${JWT_SECRET:-ecommerce-microservices-dev-jwt-secret-key-for-development-only}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      USER_PASSWORD: ${USER_PASSWORD:-user123}
     depends_on:
       product-service:
         condition: service_healthy
