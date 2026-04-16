@@ -1,7 +1,6 @@
 package com.ecommerce.payment.listener;
 
 import com.ecommerce.payment.event.OrderCreatedEvent;
-import com.ecommerce.payment.exception.BusinessRuleViolationException;
 import com.ecommerce.payment.exception.GatewayUnavailableException;
 import com.ecommerce.payment.service.PaymentService;
 import lombok.RequiredArgsConstructor;
@@ -28,8 +27,7 @@ public class OrderCreatedEventHandler {
             backoff = @Backoff(delay = 2000, multiplier = 2.0),
             dltTopicSuffix = "-dlt",
             autoCreateTopics = "true",
-            include = {GatewayUnavailableException.class},
-            exclude = {BusinessRuleViolationException.class}
+            include = {GatewayUnavailableException.class}
     )
     @KafkaListener(
             topics = "${kafka.topics.order-created}",

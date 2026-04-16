@@ -52,8 +52,9 @@ class OrderRepositoryIT {
                 .status(status)
                 .totalAmount(new BigDecimal("199.90"))
                 .items(new ArrayList<>())
+                .createdAt(java.time.LocalDateTime.now())
+                .updatedAt(java.time.LocalDateTime.now())
                 .build();
-        order.onCreate();
 
         OrderItem item = OrderItem.builder()
                 .order(order)
