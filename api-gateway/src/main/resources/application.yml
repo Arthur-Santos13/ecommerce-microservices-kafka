@@ -136,6 +136,27 @@ logging:
   level:
     org.springframework.cloud.gateway: INFO
 
+# ── Application-level settings ──────────────────────────────────────────────
+app:
+  jwt:
+    # Override with a strong random secret in production via JWT_SECRET env var.
+    # Must be ≥ 32 characters for HMAC-SHA256.
+    secret: ${JWT_SECRET:ecommerce-microservices-dev-jwt-secret-key-for-development-only}
+    expiration-ms: 86400000  # 24 hours
+
+  # In-memory users for Basic Security (Phase 12 Part 1).
+  # Replaced by a user database in Advanced Security (Phase 12 Part 2).
+  users:
+    - username: admin
+      password: ${ADMIN_PASSWORD:admin123}
+      roles:
+        - ADMIN
+        - USER
+    - username: user
+      password: ${USER_PASSWORD:user123}
+      roles:
+        - USER
+
 resilience4j:
   timelimiter:
     instances:
