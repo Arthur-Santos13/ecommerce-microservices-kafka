@@ -1,4 +1,4 @@
-﻿package com.ecommerce.payment.event;
+package com.ecommerce.payment.event;
 
 import com.ecommerce.payment.exception.KafkaPublishException;
 import lombok.RequiredArgsConstructor;
