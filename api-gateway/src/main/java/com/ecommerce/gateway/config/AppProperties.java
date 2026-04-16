@@ -30,14 +30,19 @@ public class AppProperties {
     public static class Jwt {
         /** HMAC-SHA256 signing secret — must be ≥ 32 bytes. Override via JWT_SECRET env var. */
         private String secret = "ecommerce-microservices-dev-jwt-secret-key-for-development-only";
-        /** Token validity in milliseconds (default: 24 h). */
-        private long expirationMs = 86_400_000L;
+        /** Access token validity in milliseconds (default: 15 min). */
+        private long expirationMs = 900_000L;
+        /** Refresh token validity in milliseconds (default: 7 days). */
+        private long refreshExpirationMs = 604_800_000L;
 
         public String getSecret() { return secret; }
         public void setSecret(String secret) { this.secret = secret; }
 
         public long getExpirationMs() { return expirationMs; }
         public void setExpirationMs(long expirationMs) { this.expirationMs = expirationMs; }
+
+        public long getRefreshExpirationMs() { return refreshExpirationMs; }
+        public void setRefreshExpirationMs(long refreshExpirationMs) { this.refreshExpirationMs = refreshExpirationMs; }
     }
 
     // ── In-memory users (Basic Security — replaced by DB in Advanced phase) ───
