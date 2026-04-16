@@ -16,7 +16,6 @@ import org.springframework.context.annotation.Configuration;
  * <p>Future additions (do NOT implement ahead of schedule):
  * <ul>
  *   <li>Phase 9.5 — lb:// URIs after service discovery is introduced</li>
- *   <li>Phase 12 — JWT authentication filter</li>
  * </ul>
  * </p>
  */
