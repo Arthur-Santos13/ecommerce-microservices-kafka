@@ -37,4 +37,12 @@
     <logger name="reactor.netty"                         level="WARN"/>
     <logger name="com.ecommerce.gateway"                 level="INFO"/>
 
+    <!-- Dedicated AUDIT logger — always written, never suppressed by root level -->
+    <logger name="AUDIT" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <springProfile name="docker">
+            <appender-ref ref="ASYNC_LOGSTASH"/>
+        </springProfile>
+    </logger>
+
 </configuration>

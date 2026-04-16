@@ -2,7 +2,10 @@ package com.ecommerce.gateway.controller;
 
 import com.ecommerce.gateway.dto.LoginRequest;
 import com.ecommerce.gateway.dto.LoginResponse;
+import com.ecommerce.gateway.dto.RefreshRequest;
+import com.ecommerce.gateway.security.AuditService;
 import com.ecommerce.gateway.security.JwtService;
+import com.ecommerce.gateway.security.RefreshTokenService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -19,9 +22,9 @@ import reactor.core.publisher.Mono;
 import java.util.List;
 
 /**
- * Handles authentication requests.
+ * Handles authentication requests: login, token refresh, and logout.
  *
- * <p>Exposed at {@code /auth/**} (public — no JWT required).</p>
+ * <p>All endpoints under {@code /auth/**} are public — no JWT required.</p>
  */
 @RestController
 @RequestMapping("/auth")
@@ -30,25 +33,34 @@ public class AuthController {
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
     private final JwtService jwtService;
+    private final RefreshTokenService refreshTokenService;
+    private final AuditService auditService;
     private final ReactiveUserDetailsService userDetailsService;
     private final PasswordEncoder passwordEncoder;
 
     public AuthController(JwtService jwtService,
+                          RefreshTokenService refreshTokenService,
+                          AuditService auditService,
                           ReactiveUserDetailsService userDetailsService,
                           PasswordEncoder passwordEncoder) {
         this.jwtService = jwtService;
+        this.refreshTokenService = refreshTokenService;
+        this.auditService = auditService;
         this.userDetailsService = userDetailsService;
         this.passwordEncoder = passwordEncoder;
     }
 
     /**
-     * Authenticates a user and returns a signed JWT token.
+     * Authenticates a user and returns a signed JWT access token + opaque refresh token.
      *
-     * <p>Returns {@code 200 OK} with the token on success,
+     * <p>Returns {@code 200 OK} with the token pair on success,
      * or {@code 401 Unauthorized} when credentials are invalid.</p>
      */
     @PostMapping("/login")
-    public Mono<ResponseEntity<LoginResponse>> login(@RequestBody LoginRequest request) {
+    public Mono<ResponseEntity<LoginResponse>> login(@RequestBody LoginRequest request,
+                                                      org.springframework.web.server.ServerWebExchange exchange) {
+        String ip = exchange.getRequest().getRemoteAddress() != null
+                ? exchange.getRequest().getRemoteAddress().getAddress().getHostAddress() : "unknown";
         return userDetailsService.findByUsername(request.username())
                 .filter(user -> passwordEncoder.matches(request.password(), user.getPassword()))
                 .map(user -> {
@@ -56,13 +68,70 @@ public class AuthController {
                             .map(GrantedAuthority::getAuthority)
                             .map(a -> a.replace("ROLE_", ""))
                             .toList();
-                    String token = jwtService.generateToken(user.getUsername(), roles);
+                    String accessToken  = jwtService.generateToken(user.getUsername(), roles);
+                    String refreshToken = refreshTokenService.createRefreshToken(user.getUsername(), roles);
+                    auditService.loginSuccess(user.getUsername(), ip);
                     log.info("Successful login: user={} roles={}", user.getUsername(), roles);
-                    return ResponseEntity.ok(new LoginResponse(token, user.getUsername(), roles));
+                    return ResponseEntity.ok(
+                            new LoginResponse(accessToken, refreshToken, user.getUsername(), roles));
                 })
                 .switchIfEmpty(Mono.fromCallable(() -> {
+                    auditService.loginFailure(request.username(), ip);
                     log.warn("Failed login attempt for user={}", request.username());
                     return ResponseEntity.status(HttpStatus.UNAUTHORIZED).<LoginResponse>build();
                 }));
+    }
+
+    /**
+     * Issues a new access token given a valid refresh token (token rotation).
+     *
+     * <p>The old refresh token is revoked and a new one is issued.
+     * Returns {@code 401 Unauthorized} if the token is missing, expired, or invalid.</p>
+     */
+    @PostMapping("/refresh")
+    public Mono<ResponseEntity<LoginResponse>> refresh(@RequestBody RefreshRequest request,
+                                                        org.springframework.web.server.ServerWebExchange exchange) {
+        String ip = exchange.getRequest().getRemoteAddress() != null
+                ? exchange.getRequest().getRemoteAddress().getAddress().getHostAddress() : "unknown";
+        return Mono.fromCallable(() -> {
+            if (request.refreshToken() == null || request.refreshToken().isBlank()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).<LoginResponse>build();
+            }
+            RefreshTokenService.TokenEntry entry = refreshTokenService.validate(request.refreshToken());
+            if (entry == null) {
+                log.warn("Invalid or expired refresh token presented");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).<LoginResponse>build();
+            }
+            // Rotate: revoke old, issue new pair
+            refreshTokenService.revoke(request.refreshToken());
+            String newAccessToken  = jwtService.generateToken(entry.username(), entry.roles());
+            String newRefreshToken = refreshTokenService.createRefreshToken(entry.username(), entry.roles());
+            auditService.tokenRefreshed(entry.username(), ip);
+            log.info("Access token refreshed for user={}", entry.username());
+            return ResponseEntity.ok(
+                    new LoginResponse(newAccessToken, newRefreshToken, entry.username(), entry.roles()));
+        });
+    }
+
+    /**
+     * Revokes the given refresh token (logout).
+     *
+     * <p>Returns {@code 204 No Content} regardless of token validity to avoid leaking info.</p>
+     */
+    @PostMapping("/logout")
+    public Mono<ResponseEntity<Void>> logout(@RequestBody RefreshRequest request,
+                                              org.springframework.web.server.ServerWebExchange exchange) {
+        String ip = exchange.getRequest().getRemoteAddress() != null
+                ? exchange.getRequest().getRemoteAddress().getAddress().getHostAddress() : "unknown";
+        return Mono.fromCallable(() -> {
+            if (request.refreshToken() != null && !request.refreshToken().isBlank()) {
+                RefreshTokenService.TokenEntry entry = refreshTokenService.validate(request.refreshToken());
+                refreshTokenService.revoke(request.refreshToken());
+                if (entry != null) {
+                    auditService.logout(entry.username(), ip);
+                }
+            }
+            return ResponseEntity.noContent().<Void>build();
+        });
     }
 }
