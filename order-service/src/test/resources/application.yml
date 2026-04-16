@@ -1,0 +1,30 @@
+spring:
+  config:
+    import: "optional:configserver:"
+  cloud:
+    config:
+      enabled: false
+      fail-fast: false
+  datasource:
+    url: ${TEST_DB_URL:jdbc:tc:postgresql:15:///order_test}
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: order-service-test-group
+
+kafka:
+  topics:
+    order-created: order.created
+    order-confirmed: order.confirmed
+    order-cancelled: order.cancelled
+    payment-confirmed: payment.confirmed
+    payment-failed: payment.failed
+
+product:
+  service:
+    url: http://localhost:8081

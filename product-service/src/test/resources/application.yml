@@ -1,0 +1,15 @@
+spring:
+  config:
+    import: "optional:configserver:"
+  cloud:
+    config:
+      enabled: false
+      fail-fast: false
+  kafka:
+    bootstrap-servers: localhost:9092
+
+kafka:
+  topics:
+    product-created: product.created
+    product-updated: product.updated
+    product-deleted: product.deleted
