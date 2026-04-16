@@ -295,6 +295,7 @@ services:
       USER_PASSWORD: ${USER_PASSWORD:-user123}
       REDIS_HOST: redis
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:4200}
+      GATEWAY_SECRET: ${GATEWAY_SECRET:-dev-gateway-secret}
     depends_on:
       product-service:
         condition: service_healthy
