@@ -1,5 +1,6 @@
 package com.ecommerce.gateway.filter;
 
+import com.ecommerce.gateway.security.AuditService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -39,6 +40,12 @@ import java.util.regex.Pattern;
 public class RequestSanitizationFilter implements GlobalFilter, Ordered {
 
     private static final Logger log = LoggerFactory.getLogger(RequestSanitizationFilter.class);
+
+    private final AuditService auditService;
+
+    public RequestSanitizationFilter(AuditService auditService) {
+        this.auditService = auditService;
+    }
 
     private static final int MAX_URI_LENGTH    = 8192;
     private static final int MAX_HEADER_LENGTH = 8192;
@@ -112,6 +119,9 @@ public class RequestSanitizationFilter implements GlobalFilter, Ordered {
     }
 
     private Mono<Void> rejectRequest(ServerWebExchange exchange, String message) {
+        String ip = exchange.getRequest().getRemoteAddress() != null
+                ? exchange.getRequest().getRemoteAddress().getAddress().getHostAddress() : "unknown";
+        auditService.maliciousRequestBlocked(ip, exchange.getRequest().getURI().getPath(), message);
         ServerHttpResponse response = exchange.getResponse();
         response.setStatusCode(HttpStatus.BAD_REQUEST);
         response.getHeaders().setContentType(MediaType.APPLICATION_JSON);

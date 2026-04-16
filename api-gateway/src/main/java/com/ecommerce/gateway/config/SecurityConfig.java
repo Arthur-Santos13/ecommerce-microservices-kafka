@@ -1,5 +1,6 @@
 package com.ecommerce.gateway.config;
 
+import com.ecommerce.gateway.security.AuditService;
 import com.ecommerce.gateway.security.JwtAuthenticationFilter;
 import com.ecommerce.gateway.security.JwtService;
 import org.springframework.context.annotation.Bean;
@@ -53,7 +54,8 @@ public class SecurityConfig {
 
     @Bean
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http,
-                                                          JwtAuthenticationFilter jwtFilter) {
+                                                          JwtAuthenticationFilter jwtFilter,
+                                                          AuditService auditService) {
         return http
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
@@ -83,6 +85,10 @@ public class SecurityConfig {
 
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((exchange, e) -> {
+                            String ip = exchange.getRequest().getRemoteAddress() != null
+                                    ? exchange.getRequest().getRemoteAddress().getAddress().getHostAddress()
+                                    : "unknown";
+                            auditService.unauthorized(ip, exchange.getRequest().getURI().getPath());
                             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
                             exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
                             String body = """
@@ -93,6 +99,14 @@ public class SecurityConfig {
                             return exchange.getResponse().writeWith(Mono.just(buf));
                         })
                         .accessDeniedHandler((exchange, e) -> {
+                            String ip = exchange.getRequest().getRemoteAddress() != null
+                                    ? exchange.getRequest().getRemoteAddress().getAddress().getHostAddress()
+                                    : "unknown";
+                            String user = exchange.getRequest().getHeaders().getFirst("X-User-Name");
+                            auditService.accessDenied(
+                                    user != null ? user : "anonymous",
+                                    ip,
+                                    exchange.getRequest().getURI().getPath());
                             exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
                             exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
                             String body = """
