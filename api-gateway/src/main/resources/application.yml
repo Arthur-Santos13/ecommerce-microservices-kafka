@@ -6,6 +6,10 @@ spring:
     name: api-gateway
   config:
     import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
   cloud:
     gateway:
       # ─── Default Filters (applied to every route) ──────────────────────────
@@ -31,6 +35,11 @@ spring:
               args:
                 name: X-Source-Service
                 value: api-gateway
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+                key-resolver: "#{@userKeyResolver}"
             - name: Retry
               args:
                 retries: 2
@@ -54,6 +63,11 @@ spring:
               args:
                 name: X-Source-Service
                 value: api-gateway
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                key-resolver: "#{@userKeyResolver}"
             - name: Retry
               args:
                 retries: 2
@@ -77,6 +91,11 @@ spring:
               args:
                 name: X-Source-Service
                 value: api-gateway
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 5
+                redis-rate-limiter.burstCapacity: 10
+                key-resolver: "#{@userKeyResolver}"
             - name: Retry
               args:
                 retries: 2

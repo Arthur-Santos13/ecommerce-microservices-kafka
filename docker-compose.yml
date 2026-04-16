@@ -293,6 +293,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-ecommerce-microservices-dev-jwt-secret-key-for-development-only}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
       USER_PASSWORD: ${USER_PASSWORD:-user123}
+      REDIS_HOST: redis
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:4200}
     depends_on:
       product-service:
         condition: service_healthy
@@ -302,6 +304,8 @@ services:
         condition: service_healthy
       config-server:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - ecommerce-net
     healthcheck:
@@ -310,7 +314,25 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── Observability: ELK Stack ──────────────────────────────────────────────
+  # ── Rate Limiting: Redis ───────────────────────────────────────────────────
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis-data:/data
+    networks:
+      - ecommerce-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Observability: ELK Stack ───────────────────────────────────────────────
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
@@ -377,6 +399,7 @@ volumes:
   order-db-data:
   payment-db-data:
   notification-db-data:
+  redis-data:
   es-data:
 
 # --- Networks ---
