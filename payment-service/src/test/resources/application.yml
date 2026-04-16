@@ -1,0 +1,22 @@
+spring:
+  config:
+    import: "optional:configserver:"
+  cloud:
+    config:
+      enabled: false
+      fail-fast: false
+  datasource:
+    url: ${TEST_DB_URL:jdbc:tc:postgresql:15:///payment_test}
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+  kafka:
+    bootstrap-servers: localhost:9092
+
+kafka:
+  topics:
+    payment-confirmed: payment.confirmed
+    payment-failed: payment.failed
+    order-created: order.created
