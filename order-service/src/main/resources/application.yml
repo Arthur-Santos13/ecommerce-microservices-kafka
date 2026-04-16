@@ -57,5 +57,7 @@ kafka:
   bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
   topics:
     order-created: order.created
+    order-confirmed: order.confirmed
+    order-cancelled: order.cancelled
     payment-confirmed: payment.confirmed
     payment-failed: payment.failed
