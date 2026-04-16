@@ -158,10 +158,12 @@ services:
     ports:
       - "8081:8081"
     environment:
+      SPRING_PROFILES_ACTIVE: docker
       DB_HOST: product-db
       DB_USERNAME: postgres
       DB_PASSWORD: postgres
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOGSTASH_HOST: logstash
       CONFIG_SERVER_URL: http://config-server:8888
     depends_on:
       product-db:
@@ -186,11 +188,13 @@ services:
     ports:
       - "8082:8082"
     environment:
+      SPRING_PROFILES_ACTIVE: docker
       DB_HOST: order-db
       DB_USERNAME: postgres
       DB_PASSWORD: postgres
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       PRODUCT_SERVICE_URL: http://product-service:8081
+      LOGSTASH_HOST: logstash
       CONFIG_SERVER_URL: http://config-server:8888
     depends_on:
       order-db:
@@ -217,10 +221,12 @@ services:
     ports:
       - "8083:8083"
     environment:
+      SPRING_PROFILES_ACTIVE: docker
       DB_HOST: payment-db
       DB_USERNAME: postgres
       DB_PASSWORD: postgres
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOGSTASH_HOST: logstash
       CONFIG_SERVER_URL: http://config-server:8888
     depends_on:
       payment-db:
@@ -245,12 +251,14 @@ services:
     ports:
       - "8084:8084"
     environment:
+      SPRING_PROFILES_ACTIVE: docker
       DB_HOST: notification-db
       DB_USERNAME: postgres
       DB_PASSWORD: postgres
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       MAIL_HOST: mailpit
       MAIL_PORT: 1025
+      LOGSTASH_HOST: logstash
       CONFIG_SERVER_URL: http://config-server:8888
     depends_on:
       notification-db:
@@ -275,9 +283,11 @@ services:
     ports:
       - "8080:8080"
     environment:
+      SPRING_PROFILES_ACTIVE: docker
       PRODUCT_SERVICE_URL: http://product-service:8081
       ORDER_SERVICE_URL: http://order-service:8082
       PAYMENT_SERVICE_URL: http://payment-service:8083
+      LOGSTASH_HOST: logstash
       CONFIG_SERVER_URL: http://config-server:8888
     depends_on:
       product-service:
@@ -296,6 +306,66 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── Observability: ELK Stack ──────────────────────────────────────────────
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false   # disabled for local dev; enable in production
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    networks:
+      - ecommerce-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.13.0
+    container_name: logstash
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+    ports:
+      - "5000:5000"     # TCP input from Spring Boot services
+      - "9600:9600"     # Logstash monitoring API
+    environment:
+      - LS_JAVA_OPTS=-Xms256m -Xmx256m
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - ecommerce-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9600/_node/stats | grep -q 'status'"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.0
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - ecommerce-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:5601/api/status | grep -q 'available'"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+
 # --- Volumes ---
 
 volumes:
@@ -303,6 +373,7 @@ volumes:
   order-db-data:
   payment-db-data:
   notification-db-data:
+  es-data:
 
 # --- Networks ---
 
