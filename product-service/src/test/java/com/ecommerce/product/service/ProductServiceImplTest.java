@@ -79,8 +79,9 @@ class ProductServiceImplTest {
                 .sku("SKU-001")
                 .inventory(inventory)
                 .version(0L)
+                .createdAt(java.time.LocalDateTime.now())
+                .updatedAt(java.time.LocalDateTime.now())
                 .build();
-        existingProduct.onCreate();
         inventory.setProduct(existingProduct);
     }
 
@@ -97,7 +98,8 @@ class ProductServiceImplTest {
             given(productRepository.save(any(Product.class))).willAnswer(inv -> {
                 Product p = inv.getArgument(0);
                 p.setId(productId);
-                p.onCreate();
+                p.setCreatedAt(java.time.LocalDateTime.now());
+                p.setUpdatedAt(java.time.LocalDateTime.now());
                 return p;
             });
             given(inventoryRepository.save(any(Inventory.class))).willAnswer(inv -> {
@@ -149,7 +151,8 @@ class ProductServiceImplTest {
             given(productRepository.save(any(Product.class))).willAnswer(inv -> {
                 Product p = inv.getArgument(0);
                 p.setId(UUID.randomUUID());
-                p.onCreate();
+                p.setCreatedAt(java.time.LocalDateTime.now());
+                p.setUpdatedAt(java.time.LocalDateTime.now());
                 return p;
             });
             given(inventoryRepository.save(any(Inventory.class))).willAnswer(inv -> inv.getArgument(0));

@@ -7,6 +7,7 @@ import com.ecommerce.product.exception.BusinessRuleViolationException;
 import com.ecommerce.product.exception.InsufficientStockException;
 import com.ecommerce.product.exception.ProductNotFoundException;
 import com.ecommerce.product.repository.InventoryRepository;
+import com.ecommerce.product.service.InventoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

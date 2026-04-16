@@ -1,6 +1,7 @@
 package com.ecommerce.product.service;
 
 import com.ecommerce.product.domain.Inventory;
+import com.ecommerce.product.domain.Product;
 import com.ecommerce.product.dto.InventoryResponse;
 import com.ecommerce.product.dto.StockAdjustmentRequest;
 import com.ecommerce.product.exception.BusinessRuleViolationException;
@@ -41,8 +42,10 @@ class InventoryServiceImplTest {
     @BeforeEach
     void setUp() {
         productId = UUID.randomUUID();
+        Product product = Product.builder().id(productId).build();
         inventory = Inventory.builder()
                 .id(UUID.randomUUID())
+                .product(product)
                 .quantityInStock(10)
                 .reservedQuantity(2)
                 .updatedAt(LocalDateTime.now())
