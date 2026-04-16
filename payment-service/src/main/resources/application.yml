@@ -75,3 +75,10 @@ info:
     name: ${spring.application.name}
     description: Payment Service - Processes payments and publishes payment events
     version: '@project.version@'
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] [%X{correlationId}] %-5level %logger{36} - %msg%n"
+  level:
+    root: INFO
+    com.ecommerce: INFO
