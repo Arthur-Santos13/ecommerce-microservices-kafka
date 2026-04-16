@@ -95,13 +95,8 @@ spring:
         connect-timeout: 2000       # ms — max time to establish a connection to a downstream service
         response-timeout: 10s       # max time to wait for a response from a downstream service
 
-      globalcors:
-        cors-configurations:
-          '[/**]':
-            allowedOrigins: "*"
-            allowedMethods: [ GET, POST, PUT, DELETE, PATCH, OPTIONS ]
-            allowedHeaders: "*"
-            maxAge: 3600
+      # globalcors removed — CORS is now handled programmatically via CorsConfig.java
+      # so that allowed origins can be externalized and are never hardcoded to "*".
 
 management:
   endpoints:
@@ -144,6 +139,14 @@ app:
     secret: ${JWT_SECRET:ecommerce-microservices-dev-jwt-secret-key-for-development-only}
     expiration-ms: 900000        # 15 minutes
     refresh-expiration-ms: 604800000  # 7 days
+
+  # CORS — override allowed-origins in production via CORS_ALLOWED_ORIGINS env var (comma-separated).
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:4200}
+    allowed-methods: GET,POST,PUT,DELETE,PATCH,OPTIONS
+    allowed-headers: Authorization,Content-Type,X-Correlation-Id,X-Api-Version
+    allow-credentials: true
+    max-age: 3600
 
   # In-memory users for Basic Security (Phase 12 Part 1).
   # Replaced by a user database in Advanced Security (Phase 12 Part 2).
