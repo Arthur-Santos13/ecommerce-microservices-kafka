@@ -26,7 +26,7 @@ spring:
       properties:
         spring.json.trusted.packages: "*"
   datasource:
-    url: jdbc:postgresql://localhost:5433/order_db
+    url: jdbc:postgresql://localhost:5440/order_db
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver

@@ -78,4 +78,3 @@ public class RequestTracingFilter implements GlobalFilter, Ordered {
         return Ordered.HIGHEST_PRECEDENCE;
     }
 }
-}
