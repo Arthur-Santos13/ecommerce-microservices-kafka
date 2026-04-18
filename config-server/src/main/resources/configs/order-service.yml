@@ -1,7 +1,7 @@
 # order-service specific configuration
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:5433/order_db
+    url: jdbc:postgresql://${DB_HOST:localhost}:${ORDER_DB_PORT:25440}/order_db
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
   kafka:
