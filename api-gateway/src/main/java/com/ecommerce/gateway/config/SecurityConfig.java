@@ -63,6 +63,7 @@ public class SecurityConfig {
 
                 .authorizeExchange(exchanges -> exchanges
                         // ── Public endpoints ───────────────────────────────────────────────
+                        .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .pathMatchers("/auth/**").permitAll()
                         .pathMatchers("/actuator/health/**").permitAll()
                         .pathMatchers("/fallback/**").permitAll()
