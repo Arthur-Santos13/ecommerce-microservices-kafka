@@ -7,10 +7,17 @@ spring:
   config:
     import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
   datasource:
-    url: jdbc:postgresql://localhost:5432/product_db
+    url: jdbc:postgresql://localhost:${DB_PORT:25432}/product_db
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      keepalive-time: 30000        # send keepalive every 30s to prevent DB closing idle connections
+      idle-timeout: 300000         # remove idle connections after 5min (< DB's idle timeout)
+      max-lifetime: 900000         # retire connections after 15min
+      minimum-idle: 2              # keep at least 2 idle connections ready
+      connection-timeout: 30000    # max wait for a connection from pool
+      connection-test-query: SELECT 1  # validate connection before use
   jpa:
     hibernate:
       ddl-auto: validate
