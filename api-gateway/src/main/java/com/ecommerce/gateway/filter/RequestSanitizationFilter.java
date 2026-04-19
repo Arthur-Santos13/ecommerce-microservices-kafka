@@ -107,15 +107,23 @@ public class RequestSanitizationFilter implements GlobalFilter, Ordered {
 
         ServerWebExchange sanitizedExchange = exchange.mutate().request(sanitizedRequest).build();
 
-        // ── Add security response headers ────────────────────────────────────
-        return chain.filter(sanitizedExchange)
-                .then(Mono.fromRunnable(() -> {
-                    ServerHttpResponse response = sanitizedExchange.getResponse();
-                    response.getHeaders().set("X-Content-Type-Options", "nosniff");
-                    response.getHeaders().set("X-Frame-Options", "DENY");
-                    response.getHeaders().set("Referrer-Policy", "strict-origin-when-cross-origin");
-                    response.getHeaders().set("X-XSS-Protection", "1; mode=block");
-                }));
+        // ── Add security response headers (before commit to avoid ReadOnlyHttpHeaders) ─
+        // Try-catch required: circuit breaker fallback forwards re-enter this filter,
+        // causing a second beforeCommit to run first and lock headers as read-only.
+        sanitizedExchange.getResponse().beforeCommit(() -> {
+            ServerHttpResponse response = sanitizedExchange.getResponse();
+            try {
+                response.getHeaders().set("X-Content-Type-Options", "nosniff");
+                response.getHeaders().set("X-Frame-Options", "DENY");
+                response.getHeaders().set("Referrer-Policy", "strict-origin-when-cross-origin");
+                response.getHeaders().set("X-XSS-Protection", "1; mode=block");
+            } catch (UnsupportedOperationException ignored) {
+                // Headers already set by the inner filter chain (e.g. circuit breaker fallback forward)
+            }
+            return Mono.empty();
+        });
+
+        return chain.filter(sanitizedExchange);
     }
 
     private Mono<Void> rejectRequest(ServerWebExchange exchange, String message) {

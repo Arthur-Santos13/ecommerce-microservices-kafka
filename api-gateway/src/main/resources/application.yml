@@ -43,7 +43,35 @@ spring:
             - name: Retry
               args:
                 retries: 2
-                statuses: BAD_GATEWAY,GATEWAY_TIMEOUT,SERVICE_UNAVAILABLE
+                statuses: BAD_GATEWAY,GATEWAY_TIMEOUT
+                methods: GET
+                backoff:
+                  firstBackoff: 500ms
+                  maxBackoff: 2000ms
+                  factor: 2
+            - name: CircuitBreaker
+              args:
+                name: product-service-cb
+                fallbackUri: forward:/fallback/products
+
+        - id: category-service
+          uri: ${PRODUCT_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/v1/categories/**
+          filters:
+            - name: AddRequestHeader
+              args:
+                name: X-Source-Service
+                value: api-gateway
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+                key-resolver: "#{@userKeyResolver}"
+            - name: Retry
+              args:
+                retries: 2
+                statuses: BAD_GATEWAY,GATEWAY_TIMEOUT
                 methods: GET
                 backoff:
                   firstBackoff: 500ms
@@ -71,7 +99,7 @@ spring:
             - name: Retry
               args:
                 retries: 2
-                statuses: BAD_GATEWAY,GATEWAY_TIMEOUT,SERVICE_UNAVAILABLE
+                statuses: BAD_GATEWAY,GATEWAY_TIMEOUT
                 methods: GET
                 backoff:
                   firstBackoff: 500ms
@@ -99,7 +127,7 @@ spring:
             - name: Retry
               args:
                 retries: 2
-                statuses: BAD_GATEWAY,GATEWAY_TIMEOUT,SERVICE_UNAVAILABLE
+                statuses: BAD_GATEWAY,GATEWAY_TIMEOUT
                 methods: GET
                 backoff:
                   firstBackoff: 500ms
@@ -112,7 +140,7 @@ spring:
 
       httpclient:
         connect-timeout: 2000       # ms — max time to establish a connection to a downstream service
-        response-timeout: 10s       # max time to wait for a response from a downstream service
+        response-timeout: 60s       # max time to wait for a response from a downstream service
 
       # globalcors removed — CORS is now handled programmatically via CorsConfig.java
       # so that allowed origins can be externalized and are never hardcoded to "*".
@@ -164,7 +192,7 @@ app:
 
   # CORS — override allowed-origins in production via CORS_ALLOWED_ORIGINS env var (comma-separated).
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:4200}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:4200,http://localhost:5173,http://localhost:5175}
     allowed-methods: GET,POST,PUT,DELETE,PATCH,OPTIONS
     allowed-headers: Authorization,Content-Type,X-Correlation-Id,X-Api-Version
     allow-credentials: true
@@ -187,31 +215,46 @@ resilience4j:
   timelimiter:
     instances:
       product-service-cb:
-        timeout-duration: 3s
+        timeout-duration: 30s
       order-service-cb:
-        timeout-duration: 3s
+        timeout-duration: 30s
       payment-service-cb:
-        timeout-duration: 3s
+        timeout-duration: 30s
   circuitbreaker:
     instances:
       product-service-cb:
         sliding-window-size: 10
-        failure-rate-threshold: 50
-        wait-duration-in-open-state: 10s
-        permitted-number-of-calls-in-half-open-state: 5
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 60
+        wait-duration-in-open-state: 15s
+        permitted-number-of-calls-in-half-open-state: 2
         automatic-transition-from-open-to-half-open-enabled: true
         register-health-indicator: true
+        record-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+          - org.springframework.cloud.gateway.support.NotFoundException
       order-service-cb:
         sliding-window-size: 10
-        failure-rate-threshold: 50
-        wait-duration-in-open-state: 10s
-        permitted-number-of-calls-in-half-open-state: 5
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 60
+        wait-duration-in-open-state: 15s
+        permitted-number-of-calls-in-half-open-state: 2
         automatic-transition-from-open-to-half-open-enabled: true
         register-health-indicator: true
+        record-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+          - org.springframework.cloud.gateway.support.NotFoundException
       payment-service-cb:
         sliding-window-size: 10
-        failure-rate-threshold: 50
-        wait-duration-in-open-state: 10s
-        permitted-number-of-calls-in-half-open-state: 5
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 60
+        wait-duration-in-open-state: 15s
+        permitted-number-of-calls-in-half-open-state: 2
         automatic-transition-from-open-to-half-open-enabled: true
         register-health-indicator: true
+        record-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+          - org.springframework.cloud.gateway.support.NotFoundException
