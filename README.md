@@ -311,10 +311,10 @@ A cadeia de eventos adiciona latência end-to-end em comparação com chamadas s
 | `payment-service`   | 8083     | Serviço de pagamentos            |
 | `notification-service` | 8084  | Serviço de notificações          |
 | `config-server`     | 8888     | Spring Cloud Config Server       |
-| `product-db`        | 5432     | PostgreSQL — produtos            |
-| `order-db`          | 5433     | PostgreSQL — pedidos             |
-| `payment-db`        | 5434     | PostgreSQL — pagamentos          |
-| `notification-db`   | 5435     | PostgreSQL — notificações        |
+| `product-db`        | 25432    | PostgreSQL — produtos (mapeado para evitar conflito local) |
+| `order-db`          | 25440    | PostgreSQL — pedidos (mapeado para evitar conflito local)  |
+| `payment-db`        | 25434    | PostgreSQL — pagamentos          |
+| `notification-db`   | 25435    | PostgreSQL — notificações        |
 | `kafka`             | 9092     | Apache Kafka broker              |
 | `zookeeper`         | 2181     | ZooKeeper (coordenação Kafka)    |
 | `redis`             | 6379     | Redis (rate limiting)            |
@@ -426,6 +426,48 @@ Cada fase é desenvolvida em uma branch dedicada, integrada ao `develop` via Pul
 
 ---
 
+## Integração local (fase 16)
+
+Alterações realizadas para garantir a comunicação end-to-end entre frontend, gateway e microsserviços em ambiente de desenvolvimento local.
+
+### Correções de configuração
+
+| Serviço | Problema | Solução |
+|---------|----------|---------|
+| `product-service` | Porta do banco `5432` conflitava com PostgreSQL local | Mapeado para `25432` via `${DB_PORT:25432}` |
+| `order-service`   | Porta do banco `5440` não correspondia ao Docker Compose | Mapeado para `25440` via `${DB_PORT:25440}` |
+| `payment-service` | Porta do banco `5434` mapeada incorretamente | Corrigida para `${DB_PORT:25434}` |
+| Todos os serviços | Conexões ociosas sendo encerradas pelo PostgreSQL | HikariCP keepalive configurado (`keepalive-time: 30000`) |
+
+### Correções no API Gateway
+
+| Configuração | Antes | Depois | Motivo |
+|---|---|---|---|
+| `timelimiter.timeout-duration` | `3s` | `30s` | Requisições legítimas estavam sendo canceladas |
+| `response-timeout` | `10s` | `60s` | Serviços com cold start levavam mais de 10s |
+| `retry.statuses` | `BAD_GATEWAY, GATEWAY_TIMEOUT, SERVICE_UNAVAILABLE` | `BAD_GATEWAY, GATEWAY_TIMEOUT` | `503` do fallback do circuit breaker acionava retry, consumindo os probes de HALF_OPEN |
+| `permitted-number-of-calls-in-half-open-state` | `5` | `2` | Menos probes necessários para diagnóstico |
+| `minimum-number-of-calls` | não definido | `10` | Evita abrir o circuit breaker com amostra insuficiente |
+| `RequestSanitizationFilter` | `UnsupportedOperationException` em re-entry | Captura a exceção em `beforeCommit()` | Resposta de fallback não suporta modificação de headers |
+
+### Rota adicionada
+
+```yaml
+- id: category-service
+  uri: lb://product-service
+  predicates:
+    - Path=/api/v1/categories/**
+```
+
+### Dados mock
+
+Migrations Flyway com dados iniciais para validação visual:
+
+- **`product-service` V7**: 4 categorias + 10 produtos + inventário
+- **`order-service` V4**: 5 pedidos com 9 itens em estados variados (`PAID`, `CONFIRMED`, `AWAITING_PAYMENT`, `CANCELLED`)
+
+---
+
 ## Roadmap
 
 - [x] 1. Setup inicial do projeto
@@ -442,4 +484,6 @@ Cada fase é desenvolvida em uma branch dedicada, integrada ao `develop` via Pul
 - [x] 12. Segurança
 - [x] 13. Testes
 - [x] 14. README final
+- [x] 15. Frontend
+- [ ] 16. Integração
 
