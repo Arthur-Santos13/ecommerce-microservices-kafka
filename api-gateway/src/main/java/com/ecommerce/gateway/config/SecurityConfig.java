@@ -62,6 +62,8 @@ public class SecurityConfig {
                 .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
 
                 .authorizeExchange(exchanges -> exchanges
+                        // ── CORS preflight ─────────────────────────────────────────────────
+                        .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // ── Public endpoints ───────────────────────────────────────────────
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .pathMatchers("/auth/**").permitAll()
