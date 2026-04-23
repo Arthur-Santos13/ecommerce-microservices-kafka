@@ -186,6 +186,15 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<OrderResponse> findAll() {
+        return orderRepository.findAll()
+                .stream()
+                .map(OrderResponse::from)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<OrderResponse> findByCustomer(UUID customerId) {
         return orderRepository.findByCustomerId(customerId)
                 .stream()

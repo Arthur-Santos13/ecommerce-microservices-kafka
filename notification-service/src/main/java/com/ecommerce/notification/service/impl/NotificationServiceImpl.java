@@ -3,6 +3,7 @@ package com.ecommerce.notification.service.impl;
 import com.ecommerce.notification.domain.Notification;
 import com.ecommerce.notification.domain.NotificationStatus;
 import com.ecommerce.notification.dto.NotificationRequest;
+import com.ecommerce.notification.dto.NotificationResponse;
 import com.ecommerce.notification.repository.NotificationRepository;
 import com.ecommerce.notification.sender.NotificationSender;
 import com.ecommerce.notification.service.NotificationService;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -66,5 +68,23 @@ public class NotificationServiceImpl implements NotificationService {
                             log.warn("No sender registered for channel={}", request.channel());
                         }
                 );
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<NotificationResponse> findAll() {
+        return notificationRepository.findAll()
+                .stream()
+                .map(NotificationResponse::from)
+                .toList();
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<NotificationResponse> findByRecipientId(UUID recipientId) {
+        return notificationRepository.findByRecipientId(recipientId)
+                .stream()
+                .map(NotificationResponse::from)
+                .toList();
     }
 }
