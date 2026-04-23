@@ -290,6 +290,7 @@ services:
       PRODUCT_SERVICE_URL: http://product-service:8081
       ORDER_SERVICE_URL: http://order-service:8082
       PAYMENT_SERVICE_URL: http://payment-service:8083
+      NOTIFICATION_SERVICE_URL: http://notification-service:8084
       LOGSTASH_HOST: logstash
       CONFIG_SERVER_URL: http://config-server:8888
       # JWT — override with a strong random secret in production

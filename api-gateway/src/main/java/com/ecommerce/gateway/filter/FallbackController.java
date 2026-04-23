@@ -39,6 +39,13 @@ public class FallbackController {
         return buildFallback("payment-service");
     }
 
+    @RequestMapping("/notifications")
+    public Mono<ResponseEntity<Map<String, Object>>> notificationsFallback(ServerWebExchange exchange) {
+        log.warn("Circuit breaker triggered for notification-service: path={}",
+                exchange.getRequest().getPath());
+        return buildFallback("notification-service");
+    }
+
     private Mono<ResponseEntity<Map<String, Object>>> buildFallback(String service) {
         Map<String, Object> body = Map.of(
                 "timestamp", Instant.now().toString(),
