@@ -492,6 +492,15 @@ A autorização é feita via header `X-User-Roles` propagado pelo gateway a part
 
 Rota `notification-service` adicionada ao gateway com rate limiter, retry e circuit breaker (`notification-service-cb`).
 
+### Correções de runtime pós-integração (`fix/runtime-integration`)
+
+| Arquivo | Problema | Solução |
+|---|---|---|
+| `RequestSanitizationFilter.java` | Implementado como `GlobalFilter` executava **após** o `JwtAuthenticationFilter` (um `WebFilter`), removendo o header `X-User-Roles` injetado pelo JWT antes de chegar aos serviços downstream — causava `403` em endpoints admin | Convertido para `WebFilter` com `@Order(HIGHEST_PRECEDENCE + 1)`, garantindo execução antes da injeção JWT |
+| `product-service/application.yml` | Propriedade Kafka usava prefixo customizado `kafka.bootstrap-servers` em vez de `spring.kafka.bootstrap-servers`, ignorado pelo autoconfigure do Spring — producer conectava em `localhost:9092` (inacessível no Docker), bloqueando o request por ~9s até timeout | Adicionado `spring.kafka.bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}` dentro do bloco `spring` |
+| `config-server/configs/product-service.yml` | Override do datasource usava `${DB_HOST:localhost}` resolvido no contexto do config-server (onde a variável não existe), servindo `localhost` para o product-service | Removido override de datasource; URL injetada via `SPRING_DATASOURCE_URL` diretamente no `docker-compose.yml` |
+| `docker-compose.yml` | `product-service` não tinha `SPRING_DATASOURCE_URL` explícito, dependendo do config-server para resolver o host do banco | Adicionado `SPRING_DATASOURCE_URL: jdbc:postgresql://product-db:5432/product_db` como variável de ambiente direta |
+
 ---
 
 ## Roadmap

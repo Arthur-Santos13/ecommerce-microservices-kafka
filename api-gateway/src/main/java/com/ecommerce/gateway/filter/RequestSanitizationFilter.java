@@ -3,8 +3,6 @@ package com.ecommerce.gateway.filter;
 import com.ecommerce.gateway.security.AuditService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.cloud.gateway.filter.GatewayFilterChain;
-import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpStatus;
@@ -13,6 +11,8 @@ import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.server.WebFilter;
+import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
@@ -37,7 +37,7 @@ import java.util.regex.Pattern;
  * {@code Referrer-Policy}, and {@code X-XSS-Protection} to every response.
  */
 @Component
-public class RequestSanitizationFilter implements GlobalFilter, Ordered {
+public class RequestSanitizationFilter implements WebFilter, Ordered {
 
     private static final Logger log = LoggerFactory.getLogger(RequestSanitizationFilter.class);
 
@@ -66,7 +66,7 @@ public class RequestSanitizationFilter implements GlobalFilter, Ordered {
             Pattern.CASE_INSENSITIVE);
 
     @Override
-    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+    public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
 
         // ── URI length ──────────────────────────────────────────────────────
@@ -140,7 +140,9 @@ public class RequestSanitizationFilter implements GlobalFilter, Ordered {
         return response.writeWith(Mono.just(buf));
     }
 
-    /** Runs early in the filter chain, right after tracing (HIGHEST_PRECEDENCE + 1). */
+    /** Runs before Spring Security's filter chain (HIGHEST_PRECEDENCE + 1) so that
+     *  fake client-injected X-User-Name / X-User-Roles headers are stripped before
+     *  JwtAuthenticationFilter has a chance to set the legitimate values. */
     @Override
     public int getOrder() {
         return Ordered.HIGHEST_PRECEDENCE + 1;

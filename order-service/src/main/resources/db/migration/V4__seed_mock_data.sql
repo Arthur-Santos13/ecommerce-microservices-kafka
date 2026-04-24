@@ -4,7 +4,7 @@ INSERT INTO orders (id, customer_id, status, total_amount, created_at, updated_a
 VALUES
     ('d1e2f3a4-0001-0000-0000-000000000001',
      'e1f2a3b4-0001-0000-0000-000000000001',
-     'PAID', 4999.90,
+     'CONFIRMED', 4999.90,
      NOW() - INTERVAL '3 days', NOW() - INTERVAL '3 days'),
 
     ('d1e2f3a4-0002-0000-0000-000000000002',
