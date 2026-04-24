@@ -111,14 +111,14 @@ public class RequestSanitizationFilter implements GlobalFilter, Ordered {
         // Try-catch required: circuit breaker fallback forwards re-enter this filter,
         // causing a second beforeCommit to run first and lock headers as read-only.
         sanitizedExchange.getResponse().beforeCommit(() -> {
-            ServerHttpResponse response = sanitizedExchange.getResponse();
             try {
+                ServerHttpResponse response = sanitizedExchange.getResponse();
                 response.getHeaders().set("X-Content-Type-Options", "nosniff");
                 response.getHeaders().set("X-Frame-Options", "DENY");
                 response.getHeaders().set("Referrer-Policy", "strict-origin-when-cross-origin");
                 response.getHeaders().set("X-XSS-Protection", "1; mode=block");
-            } catch (UnsupportedOperationException ignored) {
-                // Headers already set by the inner filter chain (e.g. circuit breaker fallback forward)
+            } catch (UnsupportedOperationException | IllegalStateException ignored) {
+                // Headers already set or response in read-only state (e.g. circuit breaker fallback)
             }
             return Mono.empty();
         });
