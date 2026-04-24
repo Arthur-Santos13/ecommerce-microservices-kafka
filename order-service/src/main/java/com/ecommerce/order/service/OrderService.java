@@ -12,6 +12,8 @@ public interface OrderService {
 
     OrderResponse findById(UUID id);
 
+    List<OrderResponse> findAll();
+
     List<OrderResponse> findByCustomer(UUID customerId);
 
     OrderResponse cancel(UUID id);

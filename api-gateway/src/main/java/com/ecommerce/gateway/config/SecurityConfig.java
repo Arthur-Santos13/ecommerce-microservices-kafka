@@ -62,6 +62,8 @@ public class SecurityConfig {
                 .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
 
                 .authorizeExchange(exchanges -> exchanges
+                        // ── CORS preflight ─────────────────────────────────────────────────
+                        .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // ── Public endpoints ───────────────────────────────────────────────
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .pathMatchers("/auth/**").permitAll()
@@ -77,6 +79,9 @@ public class SecurityConfig {
 
                         // ── Payment service: authenticated users ───────────────────────────
                         .pathMatchers("/api/v1/payments/**").hasAnyRole("USER", "ADMIN")
+
+                        // ── Notification service: authenticated users ──────────────────────
+                        .pathMatchers("/api/v1/notifications/**").hasAnyRole("USER", "ADMIN")
 
                         // ── Catch-all: require authentication ──────────────────────────────
                         .anyExchange().authenticated()

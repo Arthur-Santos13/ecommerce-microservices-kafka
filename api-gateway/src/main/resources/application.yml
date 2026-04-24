@@ -138,6 +138,34 @@ spring:
                 name: payment-service-cb
                 fallbackUri: forward:/fallback/payments
 
+        - id: notification-service
+          uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8085}
+          predicates:
+            - Path=/api/v1/notifications/**
+          filters:
+            - name: AddRequestHeader
+              args:
+                name: X-Source-Service
+                value: api-gateway
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                key-resolver: "#{@userKeyResolver}"
+            - name: Retry
+              args:
+                retries: 2
+                statuses: BAD_GATEWAY,GATEWAY_TIMEOUT
+                methods: GET
+                backoff:
+                  firstBackoff: 500ms
+                  maxBackoff: 2000ms
+                  factor: 2
+            - name: CircuitBreaker
+              args:
+                name: notification-service-cb
+                fallbackUri: forward:/fallback/notifications
+
       httpclient:
         connect-timeout: 2000       # ms — max time to establish a connection to a downstream service
         response-timeout: 60s       # max time to wait for a response from a downstream service
@@ -220,6 +248,8 @@ resilience4j:
         timeout-duration: 30s
       payment-service-cb:
         timeout-duration: 30s
+      notification-service-cb:
+        timeout-duration: 30s
   circuitbreaker:
     instances:
       product-service-cb:
@@ -247,6 +277,18 @@ resilience4j:
           - java.util.concurrent.TimeoutException
           - org.springframework.cloud.gateway.support.NotFoundException
       payment-service-cb:
+        sliding-window-size: 10
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 60
+        wait-duration-in-open-state: 15s
+        permitted-number-of-calls-in-half-open-state: 2
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true
+        record-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+          - org.springframework.cloud.gateway.support.NotFoundException
+      notification-service-cb:
         sliding-window-size: 10
         minimum-number-of-calls: 10
         failure-rate-threshold: 60
