@@ -1,5 +1,5 @@
 # --- Build stage ---
-FROM eclipse-temurin:17-jdk-alpine AS build
+FROM maven:3.9-eclipse-temurin-17-alpine AS build
 WORKDIR /workspace
 
 COPY pom.xml .
@@ -12,8 +12,7 @@ COPY notification-service/pom.xml notification-service/
 COPY api-gateway/pom.xml api-gateway/
 COPY config-server/pom.xml config-server/
 
-RUN apk add --no-cache maven \
-    && mvn -pl order-service -am -B -DskipTests package
+RUN mvn -pl order-service -am -B -DskipTests package
 
 # --- Runtime stage ---
 FROM eclipse-temurin:17-jre-alpine
