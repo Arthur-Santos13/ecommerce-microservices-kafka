@@ -31,6 +31,17 @@ spring:
     locations: classpath:db/migration
   cache:
     type: caffeine
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      properties:
+        delivery.timeout.ms: 5000
+        request.timeout.ms: 3000
+        max.block.ms: 5000
 
 management:
   endpoints:
@@ -58,7 +69,6 @@ info:
     version: '@project.version@'
 
 kafka:
-  bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
   topics:
     product-created: product.created
     product-updated: product.updated
