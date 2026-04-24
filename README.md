@@ -32,9 +32,11 @@ Plataforma de e-commerce construída com arquitetura de microsserviços, comunic
   │                          API Gateway  :8080                                 │
   │                       (Spring Cloud Gateway + JWT + Redis rate-limit)       │
   │                                                                             │
-  │  /api/v1/products/**  →  product-service                                   │
-  │  /api/v1/orders/**    →  order-service                                     │
-  │  /api/v1/payments/**  →  payment-service                                   │
+  │  /api/v1/products/**       →  product-service                              │
+  │  /api/v1/categories/**     →  product-service                              │
+  │  /api/v1/orders/**         →  order-service                                │
+  │  /api/v1/payments/**       →  payment-service                              │
+  │  /api/v1/notifications/**  →  notification-service                         │
   └──────┬──────────────────────────┬────────────────────────┬─────────────────┘
          │ REST                     │ REST                    │ REST
          ▼                          ▼                         ▼
@@ -466,6 +468,30 @@ Migrations Flyway com dados iniciais para validação visual:
 - **`product-service` V7**: 4 categorias + 10 produtos + inventário
 - **`order-service` V4**: 5 pedidos com 9 itens em estados variados (`PAID`, `CONFIRMED`, `AWAITING_PAYMENT`, `CANCELLED`)
 
+### Correções de CORS (`fix/gateway-cors-and-sanitization`)
+
+| Arquivo | Problema | Solução |
+|---|---|---|
+| `CorsConfig.java` | `CorsWebFilter` executava após o Spring Security, que bloqueava as preflight requests | Adicionado `@Order(Ordered.HIGHEST_PRECEDENCE)` ao bean |
+| `SecurityConfig.java` | Requisições `OPTIONS` eram interceptadas pela cadeia de segurança antes do CORS | Adicionada regra `.pathMatchers(OPTIONS, "/**").permitAll()` como primeira regra |
+| `docker-compose.yml` | `CORS_ALLOWED_ORIGINS` com lista separada por vírgula não fazia binding correto para `List<String>` | Substituído por `SPRING_APPLICATION_JSON` com JSON estruturado |
+| `RequestSanitizationFilter.java` | `getResponse()` chamado fora do try-catch causava `UnsupportedOperationException` nas respostas de fallback do circuit breaker, gerando `ERR_INCOMPLETE_CHUNKED_ENCODING` | Movido para dentro do bloco try-catch |
+
+### Admin API endpoints (`feature/admin-api-endpoints`)
+
+Novos endpoints para suportar operações administrativas:
+
+| Endpoint | Serviço | Acesso | Comportamento |
+|---|---|---|---|
+| `GET /api/v1/orders` (sem `customerId`) | order-service | ADMIN | Retorna todos os pedidos do sistema |
+| `GET /api/v1/orders?customerId={id}` | order-service | USER, ADMIN | Retorna pedidos do cliente (comportamento anterior) |
+| `GET /api/v1/notifications` (sem `recipientId`) | notification-service | ADMIN | Retorna todas as notificações |
+| `GET /api/v1/notifications?recipientId={id}` | notification-service | USER, ADMIN | Retorna notificações do destinatário |
+
+A autorização é feita via header `X-User-Roles` propagado pelo gateway a partir do JWT — os serviços não revalidam o token.
+
+Rota `notification-service` adicionada ao gateway com rate limiter, retry e circuit breaker (`notification-service-cb`).
+
 ---
 
 ## Roadmap
@@ -485,5 +511,5 @@ Migrations Flyway com dados iniciais para validação visual:
 - [x] 13. Testes
 - [x] 14. README final
 - [x] 15. Frontend
-- [ ] 16. Integração
+- [x] 16. Integração
 
