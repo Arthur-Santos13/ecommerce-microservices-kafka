@@ -35,6 +35,7 @@ import java.util.List;
  *   <li>GET {@code /api/v1/products/**} — requires USER or ADMIN role</li>
  *   <li>POST/PUT/DELETE {@code /api/v1/products/**} — requires ADMIN role</li>
  *   <li>{@code /api/v1/orders/**}   — requires USER or ADMIN role</li>
+ *   <li>{@code /api/v1/payments/webhooks/**} — public POST for bank callbacks (validated in service)</li>
  *   <li>{@code /api/v1/payments/**} — requires USER or ADMIN role</li>
  *   <li>Everything else           — requires authentication</li>
  * </ul>
@@ -76,6 +77,10 @@ public class SecurityConfig {
 
                         // ── Order service: authenticated users ─────────────────────────────
                         .pathMatchers("/api/v1/orders/**").hasAnyRole("USER", "ADMIN")
+
+                        // ── Payment service: bank webhooks (no JWT) ─────────────────────────
+                        .pathMatchers(HttpMethod.POST, "/api/v1/payments/webhooks/**")
+                        .permitAll()
 
                         // ── Payment service: authenticated users ───────────────────────────
                         .pathMatchers("/api/v1/payments/**").hasAnyRole("USER", "ADMIN")
