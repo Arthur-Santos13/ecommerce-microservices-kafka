@@ -10,11 +10,7 @@ import org.springframework.stereotype.Component;
 import java.util.Set;
 
 /**
- * Simulates the Brazilian instant payment rail (PIX via Banco Central).
- *
- * Behaviour:
- * - 1% chance of transient unavailability (BACEN SPI is highly reliable)
- * - All other transactions are approved instantly
+ * Simulates PIX charge creation; settlement is asynchronous.
  */
 @Component
 public class PixGatewayProvider implements GatewayProvider {
@@ -28,7 +24,12 @@ public class PixGatewayProvider implements GatewayProvider {
                     "PIX rail temporarily unavailable — orderId=" + payment.getOrderId());
         }
 
-        return GatewayResult.approved("PIX payment confirmed instantly via SPI");
+        String txid = "sim-pix-" + payment.getOrderId();
+        String emv = "00020126580014br.gov.bcb.pix0136" + txid + "5204000053039865802BR5925Ecommerce6009SaoPaulo62070503***6304ABCD";
+        return GatewayResult.awaitingSettlement(
+                txid,
+                emv,
+                "PIX charge created — awaiting payer confirmation");
     }
 
     @Override
