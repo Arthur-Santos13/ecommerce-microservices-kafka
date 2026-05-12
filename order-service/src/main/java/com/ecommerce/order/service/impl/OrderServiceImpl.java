@@ -5,6 +5,7 @@ import com.ecommerce.order.client.dto.ProductResponse;
 import com.ecommerce.order.domain.Order;
 import com.ecommerce.order.domain.OrderItem;
 import com.ecommerce.order.domain.OrderStatus;
+import com.ecommerce.order.domain.PaymentMethod;
 import com.ecommerce.order.domain.ProcessedEvent;
 import com.ecommerce.order.dto.OrderItemRequest;
 import com.ecommerce.order.dto.OrderRequest;
@@ -43,9 +44,14 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResponse create(OrderRequest request) {
+        PaymentMethod paymentMethod = request.paymentMethod() != null
+                ? request.paymentMethod()
+                : PaymentMethod.CREDIT_CARD;
+
         Order order = Order.builder()
                 .customerId(request.customerId())
                 .status(OrderStatus.AWAITING_PAYMENT)
+                .paymentMethod(paymentMethod)
                 .totalAmount(BigDecimal.ZERO)
                 .items(new ArrayList<>())
                 .build();
