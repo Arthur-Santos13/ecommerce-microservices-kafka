@@ -10,7 +10,7 @@ import com.ecommerce.payment.event.OrderCreatedEvent;
 import com.ecommerce.payment.exception.BusinessRuleViolationException;
 import com.ecommerce.payment.exception.PaymentNotFoundException;
 import com.ecommerce.payment.gateway.GatewayResult;
-import com.ecommerce.payment.gateway.PaymentGatewaySimulator;
+import com.ecommerce.payment.gateway.PaymentGatewayRouter;
 import com.ecommerce.payment.domain.ProcessedEvent;
 import com.ecommerce.payment.event.PaymentConfirmedEvent;
 import com.ecommerce.payment.event.PaymentEventPublisher;
@@ -37,7 +37,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final PaymentTransactionRepository transactionRepository;
     private final ProcessedEventRepository processedEventRepository;
-    private final PaymentGatewaySimulator gatewaySimulator;
+    private final PaymentGatewayRouter gatewayRouter;
     private final PaymentEventPublisher eventPublisher;
 
     private static PaymentMethod resolvePaymentMethod(OrderCreatedEvent event) {
@@ -108,7 +108,7 @@ public class PaymentServiceImpl implements PaymentService {
         payment = paymentRepository.save(payment);
         recordTransaction(payment);
 
-        GatewayResult result = gatewaySimulator.process(payment);
+        GatewayResult result = gatewayRouter.process(payment);
 
         if (result.awaitingSettlement()) {
             payment.setStatus(PaymentStatus.AWAITING_PAYMENT);
