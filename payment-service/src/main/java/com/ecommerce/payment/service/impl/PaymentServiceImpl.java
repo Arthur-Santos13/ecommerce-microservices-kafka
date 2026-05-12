@@ -40,6 +40,10 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentGatewaySimulator gatewaySimulator;
     private final PaymentEventPublisher eventPublisher;
 
+    private static PaymentMethod resolvePaymentMethod(OrderCreatedEvent event) {
+        return event.paymentMethod() != null ? event.paymentMethod() : PaymentMethod.CREDIT_CARD;
+    }
+
     @Override
     @Transactional
     public PaymentResponse create(PaymentRequest request) {
@@ -88,11 +92,13 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private PaymentResponse doProcess(OrderCreatedEvent event) {
+        PaymentMethod method = resolvePaymentMethod(event);
+
         Payment payment = Payment.builder()
                 .orderId(event.orderId())
                 .customerId(event.customerId())
                 .amount(event.totalAmount())
-                .method(PaymentMethod.CREDIT_CARD)
+                .method(method)
                 .status(PaymentStatus.PENDING)
                 .build();
         payment = paymentRepository.save(payment);
@@ -170,11 +176,12 @@ public class PaymentServiceImpl implements PaymentService {
                         existing -> log.warn("Payment already persisted for DLT event: orderId={}, status={}",
                                 event.orderId(), existing.getStatus()),
                         () -> {
+                            PaymentMethod method = resolvePaymentMethod(event);
                             Payment payment = Payment.builder()
                                     .orderId(event.orderId())
                                     .customerId(event.customerId())
                                     .amount(event.totalAmount())
-                                    .method(PaymentMethod.CREDIT_CARD)
+                                    .method(method)
                                     .status(PaymentStatus.FAILED)
                                     .failureReason("Payment processing failed after all retries")
                                     .build();

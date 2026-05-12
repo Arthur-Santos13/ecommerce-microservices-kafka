@@ -74,7 +74,7 @@ class PaymentIdempotencyIT {
     @Autowired private PaymentTransactionRepository transactionRepository;
     @Autowired private ProcessedEventRepository processedEventRepository;
 
-    private OrderCreatedEvent buildOrderEvent(String eventId, UUID orderId) {
+    private OrderCreatedEvent buildOrderEvent(String eventId, UUID orderId, PaymentMethod paymentMethod) {
         return new OrderCreatedEvent(
                 eventId,
                 "order.created",
@@ -83,8 +83,13 @@ class PaymentIdempotencyIT {
                 orderId,
                 UUID.randomUUID(),
                 new BigDecimal("250.00"),
-                List.of()
+                List.of(),
+                paymentMethod
         );
+    }
+
+    private OrderCreatedEvent buildOrderEvent(String eventId, UUID orderId) {
+        return buildOrderEvent(eventId, orderId, null);
     }
 
     // ── processFromEvent: approved ─────────────────────────────────────────────
@@ -115,6 +120,22 @@ class PaymentIdempotencyIT {
 
             verify(eventPublisher).publishPaymentConfirmed(any());
             verify(eventPublisher, never()).publishPaymentFailed(any());
+        }
+
+        @Test
+        @DisplayName("persists payment method from event when provided")
+        void process_usesPaymentMethodFromEvent() {
+            given(gatewaySimulator.process(any())).willReturn(GatewayResult.approved("Approved"));
+            doNothing().when(eventPublisher).publishPaymentConfirmed(any());
+
+            String eventId = UUID.randomUUID().toString();
+            UUID orderId = UUID.randomUUID();
+
+            PaymentResponse response = paymentService.processFromEvent(
+                    buildOrderEvent(eventId, orderId, PaymentMethod.PIX));
+
+            assertThat(response.method()).isEqualTo(PaymentMethod.PIX);
+            assertThat(response.status()).isEqualTo(PaymentStatus.PAID);
         }
     }
 
