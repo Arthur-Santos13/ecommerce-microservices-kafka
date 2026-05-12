@@ -1,6 +1,7 @@
 package com.ecommerce.order.event;
 
 import com.ecommerce.order.domain.Order;
+import com.ecommerce.order.domain.PaymentMethod;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -25,7 +26,8 @@ public record OrderCreatedEvent(
         UUID orderId,
         UUID customerId,
         BigDecimal totalAmount,
-        List<OrderItemEvent> items
+        List<OrderItemEvent> items,
+        PaymentMethod paymentMethod
 ) {
 
     public static OrderCreatedEvent from(Order order) {
@@ -40,7 +42,8 @@ public record OrderCreatedEvent(
                 order.getId(),
                 order.getCustomerId(),
                 order.getTotalAmount(),
-                items
+                items,
+                order.getPaymentMethod()
         );
     }
 }
