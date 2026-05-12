@@ -2,6 +2,7 @@ package com.ecommerce.order.dto;
 
 import com.ecommerce.order.domain.Order;
 import com.ecommerce.order.domain.OrderStatus;
+import com.ecommerce.order.domain.PaymentMethod;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -12,6 +13,7 @@ public record OrderResponse(
         UUID id,
         UUID customerId,
         OrderStatus status,
+        PaymentMethod paymentMethod,
         BigDecimal totalAmount,
         List<OrderItemResponse> items,
         String failureReason,
@@ -27,6 +29,7 @@ public record OrderResponse(
                 order.getId(),
                 order.getCustomerId(),
                 order.getStatus(),
+                order.getPaymentMethod(),
                 order.getTotalAmount(),
                 items,
                 order.getFailureReason(),
