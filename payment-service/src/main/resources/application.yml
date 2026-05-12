@@ -49,6 +49,14 @@ spring:
         delivery.timeout.ms: 10000
         request.timeout.ms: 5000
 
+# Gateway: simulator (default) or bb (HTTP stub). Bank URLs are placeholders — override via env / config server.
+payment:
+  gateway: ${PAYMENT_GATEWAY:simulator}
+  bb:
+    base-url: ${BB_API_BASE_URL:}
+    oauth-token-url: ${BB_OAUTH_TOKEN_URL:}
+    webhook-secret-env: BB_WEBHOOK_SECRET
+
 kafka:
   topics:
     order-created: order.created
