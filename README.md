@@ -8,6 +8,7 @@ Plataforma de e-commerce construída com arquitetura de microsserviços, comunic
 
 - [Arquitetura](#arquitetura)
 - [Fluxo de eventos](#fluxo-de-eventos)
+- [Pagamentos e checkout](#pagamentos-e-checkout)
 - [Padrão de eventos](#padrão-de-eventos)
 - [Decisões técnicas](#decisões-técnicas)
 - [Trade-offs](#trade-offs)
@@ -35,7 +36,8 @@ Plataforma de e-commerce construída com arquitetura de microsserviços, comunic
   │  /api/v1/products/**       →  product-service                              │
   │  /api/v1/categories/**     →  product-service                              │
   │  /api/v1/orders/**         →  order-service                                │
-  │  /api/v1/payments/**       →  payment-service                              │
+  │  POST /api/v1/payments/webhooks/** → payment-service (sem JWT)           │
+  │  /api/v1/payments/**       →  payment-service (JWT)                        │
   │  /api/v1/notifications/**  →  notification-service                         │
   └──────┬──────────────────────────┬────────────────────────┬─────────────────┘
          │ REST                     │ REST                    │ REST
@@ -92,43 +94,39 @@ O fluxo principal cobre a jornada completa de um pedido, do momento da criação
 ```
   Cliente
      │
-     │  POST /api/v1/orders
+     │  POST /api/v1/orders  (opcional: paymentMethod: CREDIT_CARD | DEBIT_CARD | PIX | BANK_SLIP)
      ▼
   API Gateway ──► order-service
                        │
-                       ├── persiste Order [PENDING]
+                       ├── persiste Order [AWAITING_PAYMENT] + paymentMethod
                        │
-                       └── publica ──► order.created
+                       └── publica ──► order.created  (payload inclui paymentMethod)
                                             │
                        ┌────────────────────┘
                        │
                        ▼
                  payment-service
                        │
-                       ├── valida idempotência (orderId já processado?)
+                       ├── idempotência por eventId (Kafka) + anti-duplicata por orderId
                        │
-                       ├── processa pagamento
+                       ├── roteamento: payment.gateway = simulator | bb
+                       │      (bb usa stub HTTP — sem chamadas reais a banco)
                        │
-                       ├── [APROVADO] publica ──► payment.confirmed
-                       │                               │
-                       │             ┌─────────────────┴──────────────────┐
-                       │             ▼                                     ▼
-                       │       order-service                  notification-service
-                       │       [PENDING → PAID]               envia e-mail de confirmação
-                       │             │
-                       │             └── publica ──► order.confirmed
-                       │                                  │
-                       │                                  ▼
-                       │                       notification-service
-                       │                       envia resumo do pedido
+                       ├── Cartão (simulator/bb): fluxo síncrono
+                       │      PROCESSING → PAID ou FAILED → publica payment.confirmed / payment.failed
                        │
-                       └── [RECUSADO] publica ──► payment.failed
-                                                       │
-                                    ┌──────────────────┴──────────────────┐
-                                    ▼                                      ▼
-                              order-service                   notification-service
-                              [PENDING → CANCELLED]           envia e-mail de falha
-                              libera estoque (product-service)
+                       └── PIX / boleto: fluxo assíncrono
+                              PROCESSING → AWAITING_PAYMENT (+ txid / instruções persistidos)
+                              (não publica payment.confirmed ainda)
+                              │
+                              │  POST /api/v1/payments/webhooks/bb  (callback banco / teste)
+                              ▼
+                              AWAITING_PAYMENT → PAID ou FAILED → payment.confirmed / payment.failed
+
+  Após payment.confirmed / payment.failed (igual ao fluxo anterior):
+
+                       order-service atualiza estado do pedido
+                       notification-service envia e-mails conforme tópicos order.* / contexto
 ```
 
 ### Estados dos agregados
@@ -136,16 +134,54 @@ O fluxo principal cobre a jornada completa de um pedido, do momento da criação
 **Order** (`order-service`)
 
 ```
-PENDING ──► CONFIRMED ──► PAID ──► SHIPPED ──► DELIVERED
-        └──► CANCELLED
+AWAITING_PAYMENT ──► CONFIRMED     (após payment.confirmed)
+        │
+        └──► CANCELLED            (cancelamento manual ou compensação por payment.failed)
 ```
+
+> O enum `OrderStatus` inclui também `PAYMENT_FAILED`; o fluxo atual de falha de pagamento grava **CANCELLED** e libera estoque.
 
 **Payment** (`payment-service`)
 
 ```
-PENDING ──► PROCESSING ──► PAID
-                       └──► FAILED ──► REFUNDED
+PENDING ──► PROCESSING ──► PAID          (cartão: confirmação síncrona no processamento do evento)
+         │               └──► FAILED
+         │
+         └──► AWAITING_PAYMENT ──► PAID   (PIX / boleto: após webhook ou reconciliação)
+                              └──► FAILED
 ```
+
+---
+
+## Pagamentos e checkout
+
+### Método no pedido
+
+- O corpo de **criação de pedido** aceita `paymentMethod` opcional (`CREDIT_CARD`, `DEBIT_CARD`, `PIX`, `BANK_SLIP`). Se omitido, o backend assume **cartão de crédito** (compatível com clientes antigos).
+- O valor é persistido em `orders.payment_method` e replicado no evento **`order.created`** para o `payment-service`.
+
+### Gateway de pagamento
+
+| Variável / propriedade | Valor | Comportamento |
+|------------------------|-------|----------------|
+| `payment.gateway` (`PAYMENT_GATEWAY`) | `simulator` (padrão) | `PaymentGatewayRouter` delega ao simulador interno (cartão / PIX / boleto). |
+| `payment.gateway` | `bb` | Usa o **stub** `BbPaymentGatewayStub` (sem HTTP real); PIX/boleto retornam liquidação pendente como no simulador. |
+| `payment.bb.base-url`, `payment.bb.oauth-token-url` | placeholders via env | Reservados para integração futura com API bancária; segredos só por variável de ambiente / Config Server. |
+
+### PIX e boleto (assíncronos)
+
+- Após `order.created`, o pagamento entra em **`AWAITING_PAYMENT`** com `externalTransactionId` e `paymentInstructions` (ex.: EMV PIX / linha digitável simulada).
+- **Não** é publicado `payment.confirmed` até liquidação.
+- **`POST /api/v1/payments/webhooks/bb`** aceita um payload mínimo (`notificationId`, `orderId`, `status`: `PAID` \| `FAILED`, motivo opcional). A idempotência usa `processed_events` com chave `bb-webhook:{notificationId}`.
+
+### API Gateway
+
+- **`POST /api/v1/payments/webhooks/**`** é **público** (sem JWT), para permitir callbacks de provedores bancários.
+- Demais rotas **`/api/v1/payments/**`** continuam exigindo autenticação.
+
+### Notification service
+
+- O consumidor de `order.created` usa o mesmo contrato JSON, incluindo **`paymentMethod`** (opcional em mensagens antigas).
 
 ---
 
@@ -155,7 +191,7 @@ PENDING ──► PROCESSING ──► PAID
 
 | Tópico                | Publicado por       | Consumido por                                   |
 |-----------------------|---------------------|-------------------------------------------------|
-| `order.created`       | order-service       | payment-service                                 |
+| `order.created`       | order-service       | payment-service, notification-service         |
 | `order.confirmed`     | order-service       | notification-service                            |
 | `order.cancelled`     | order-service       | notification-service, product-service           |
 | `payment.confirmed`   | payment-service     | order-service, notification-service             |
@@ -186,13 +222,7 @@ Mensagem recebida
 
 ### Idempotência
 
-Todos os consumers verificam se o evento já foi processado antes de executar a lógica de negócio, garantindo que mensagens duplicadas (por redelivery) não causem efeitos colaterais:
-
-```java
-if (paymentRepository.existsByOrderId(event.getOrderId())) {
-    return; // já processado — ignora silenciosamente
-}
-```
+Todos os consumers verificam se o evento já foi processado antes de executar a lógica de negócio, garantindo que mensagens duplicadas (por redelivery) não causem efeitos colaterais. Exemplo no **payment-service** (`order.created`): deduplicação por **`eventId`** na tabela `processed_events`, além de ignorar criação duplicada quando já existe pagamento para o `orderId`.
 
 ---
 
@@ -224,6 +254,7 @@ if (paymentRepository.existsByOrderId(event.getOrderId())) {
 |---------|---------|
 | **Spring Cloud Gateway** | Roteamento reativo, integrado ao ecossistema Spring Boot sem fricção |
 | **JWT** | Autenticação stateless — o gateway valida o token e propaga claims para os serviços downstream |
+| **Webhooks de pagamento** | `POST /api/v1/payments/webhooks/**` liberado sem JWT; validação de assinatura/IP fica a cargo da evolução da integração bancária |
 | **Rate limiting** | Redis (Sliding Window) no gateway — proteção contra abuso sem afetar os serviços internos |
 | **Gateway Secret** | Header `X-Gateway-Secret` validado nos serviços internos — impede chamadas diretas que bypassem o gateway |
 | **CORS** | Configurado no gateway, não nos serviços individuais — ponto único de controle |
@@ -381,11 +412,11 @@ curl -X POST http://localhost:8080/api/v1/products \
   -H "Content-Type: application/json" \
   -d '{"name":"Notebook","description":"16GB RAM","price":4999.90,"sku":"NB-001","categoryId":1}'
 
-# 2. Criar pedido
+# 2. Criar pedido (paymentMethod opcional: CREDIT_CARD, DEBIT_CARD, PIX, BANK_SLIP)
 curl -X POST http://localhost:8080/api/v1/orders \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"customerId":"uuid-cliente","items":[{"productId":"uuid-produto","quantity":1}]}'
+  -d '{"customerId":"uuid-cliente","paymentMethod":"PIX","items":[{"productId":"uuid-produto","quantity":1}]}'
 
 # 3. Verificar notificação no Mailpit
 # Acesse http://localhost:8025
@@ -501,6 +532,18 @@ Rota `notification-service` adicionada ao gateway com rate limiter, retry e circ
 | `config-server/configs/product-service.yml` | Override do datasource usava `${DB_HOST:localhost}` resolvido no contexto do config-server (onde a variável não existe), servindo `localhost` para o product-service | Removido override de datasource; URL injetada via `SPRING_DATASOURCE_URL` diretamente no `docker-compose.yml` |
 | `docker-compose.yml` | `product-service` não tinha `SPRING_DATASOURCE_URL` explícito, dependendo do config-server para resolver o host do banco | Adicionado `SPRING_DATASOURCE_URL: jdbc:postgresql://product-db:5432/product_db` como variável de ambiente direta |
 
+### Pagamentos: método no pedido, gateway e webhook
+
+| Área | O que mudou |
+|------|-------------|
+| **order-service** | Campo `paymentMethod` na criação do pedido, persistência em `orders`, inclusão em `OrderCreatedEvent`. |
+| **payment-service** | Leitura de `paymentMethod` do evento (fallback cartão); estado `AWAITING_PAYMENT` para PIX/boleto; campos `external_transaction_id` e `payment_instructions`; `PaymentGatewayRouter` com `simulator` \| `bb` (stub); endpoint `POST /api/v1/payments/webhooks/bb` com idempotência. |
+| **config-server** | Placeholders `payment.gateway`, `payment.bb.*` em `configs/payment-service.yml`. |
+| **api-gateway** | Rota pública para `POST /api/v1/payments/webhooks/**`. |
+| **notification-service** | Contrato de `order.created` alinhado com `paymentMethod`. |
+
+Variáveis úteis em desenvolvimento: `PAYMENT_GATEWAY=simulator` (padrão), `PAYMENT_GATEWAY=bb` para exercitar o stub; `BB_API_BASE_URL` / `BB_OAUTH_TOKEN_URL` reservados para futura integração HTTP real.
+
 ---
 
 ## Roadmap
@@ -521,4 +564,5 @@ Rota `notification-service` adicionada ao gateway com rate limiter, retry e circ
 - [x] 14. README final
 - [x] 15. Frontend
 - [x] 16. Integração
+- [x] 17. Pagamentos — método no pedido, gateway (simulator/bb), PIX/boleto assíncronos e webhook
 
