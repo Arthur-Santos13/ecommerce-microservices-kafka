@@ -165,6 +165,33 @@ class PaymentIdempotencyIT {
         }
     }
 
+    @Nested
+    @DisplayName("processFromEvent() — PIX awaiting settlement")
+    class ProcessAwaiting {
+
+        @Test
+        @DisplayName("creates payment AWAITING_PAYMENT without publishing confirmation")
+        void process_pix_awaiting_noConfirmationEvent() {
+            given(gatewaySimulator.process(any())).willReturn(
+                    GatewayResult.awaitingSettlement("tx-1", "pix-copy-paste", "awaiting"));
+            doNothing().when(eventPublisher).publishPaymentConfirmed(any());
+
+            String eventId = UUID.randomUUID().toString();
+            UUID orderId = UUID.randomUUID();
+
+            PaymentResponse response = paymentService.processFromEvent(
+                    buildOrderEvent(eventId, orderId, PaymentMethod.PIX));
+
+            assertThat(response.status()).isEqualTo(PaymentStatus.AWAITING_PAYMENT);
+            assertThat(response.externalTransactionId()).isEqualTo("tx-1");
+            assertThat(response.paymentInstructions()).isEqualTo("pix-copy-paste");
+            assertThat(transactionRepository.findByPaymentIdOrderByCreatedAtAsc(response.id())).hasSize(3);
+
+            verify(eventPublisher, never()).publishPaymentConfirmed(any());
+            verify(eventPublisher, never()).publishPaymentFailed(any());
+        }
+    }
+
     // ── Idempotency ────────────────────────────────────────────────────────────
 
     @Nested

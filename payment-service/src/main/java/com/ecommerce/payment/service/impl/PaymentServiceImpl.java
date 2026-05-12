@@ -110,7 +110,11 @@ public class PaymentServiceImpl implements PaymentService {
 
         GatewayResult result = gatewaySimulator.process(payment);
 
-        if (result.approved()) {
+        if (result.awaitingSettlement()) {
+            payment.setStatus(PaymentStatus.AWAITING_PAYMENT);
+            payment.setExternalTransactionId(result.externalTransactionId());
+            payment.setPaymentInstructions(result.paymentInstructions());
+        } else if (result.approved()) {
             payment.setStatus(PaymentStatus.PAID);
         } else {
             payment.setStatus(PaymentStatus.FAILED);
@@ -120,7 +124,10 @@ public class PaymentServiceImpl implements PaymentService {
         payment = paymentRepository.save(payment);
         recordTransaction(payment);
 
-        if (result.approved()) {
+        if (result.awaitingSettlement()) {
+            log.info("Payment awaiting settlement: orderId={}, externalId={}",
+                    event.orderId(), payment.getExternalTransactionId());
+        } else if (result.approved()) {
             eventPublisher.publishPaymentConfirmed(PaymentConfirmedEvent.from(payment));
         } else {
             eventPublisher.publishPaymentFailed(PaymentFailedEvent.from(payment));

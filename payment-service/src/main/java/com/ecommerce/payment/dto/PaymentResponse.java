@@ -16,6 +16,8 @@ public record PaymentResponse(
         PaymentStatus status,
         PaymentMethod method,
         String failureReason,
+        String externalTransactionId,
+        String paymentInstructions,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
@@ -29,6 +31,8 @@ public record PaymentResponse(
                 payment.getStatus(),
                 payment.getMethod(),
                 payment.getFailureReason(),
+                payment.getExternalTransactionId(),
+                payment.getPaymentInstructions(),
                 payment.getCreatedAt(),
                 payment.getUpdatedAt()
         );
