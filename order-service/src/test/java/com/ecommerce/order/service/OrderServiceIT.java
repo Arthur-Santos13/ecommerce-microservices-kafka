@@ -3,6 +3,7 @@ package com.ecommerce.order.service;
 import com.ecommerce.order.client.ProductClient;
 import com.ecommerce.order.client.dto.ProductResponse;
 import com.ecommerce.order.domain.OrderStatus;
+import com.ecommerce.order.domain.PaymentMethod;
 import com.ecommerce.order.dto.OrderItemRequest;
 import com.ecommerce.order.dto.OrderRequest;
 import com.ecommerce.order.dto.OrderResponse;
@@ -87,13 +88,14 @@ class OrderServiceIT {
             doNothing().when(eventPublisher).publishOrderCreated(any());
 
             OrderRequest request = new OrderRequest(customerId,
-                    List.of(new OrderItemRequest(productId, 2)));
+                    List.of(new OrderItemRequest(productId, 2)), null);
 
             OrderResponse response = orderService.create(request);
 
             assertThat(response.id()).isNotNull();
             assertThat(response.customerId()).isEqualTo(customerId);
             assertThat(response.status()).isEqualTo(OrderStatus.AWAITING_PAYMENT);
+            assertThat(response.paymentMethod()).isEqualTo(PaymentMethod.CREDIT_CARD);
             assertThat(response.totalAmount()).isEqualByComparingTo("99.80");
             assertThat(response.items()).hasSize(1);
 
@@ -101,6 +103,26 @@ class OrderServiceIT {
             verify(eventPublisher).publishOrderCreated(any());
 
             assertThat(orderRepository.findById(response.id())).isPresent();
+        }
+
+        @Test
+        @DisplayName("persists explicit payment method when provided")
+        void create_withPaymentMethod_persistsMethod() {
+            UUID productId = UUID.randomUUID();
+            UUID customerId = UUID.randomUUID();
+
+            given(productClient.findById(productId)).willReturn(mockProduct(productId, 5));
+            doNothing().when(productClient).reserveStock(eq(productId), eq(1));
+            doNothing().when(eventPublisher).publishOrderCreated(any());
+
+            OrderRequest request = new OrderRequest(customerId,
+                    List.of(new OrderItemRequest(productId, 1)), PaymentMethod.PIX);
+
+            OrderResponse response = orderService.create(request);
+
+            assertThat(response.paymentMethod()).isEqualTo(PaymentMethod.PIX);
+            assertThat(orderRepository.findById(response.id()).orElseThrow().getPaymentMethod())
+                    .isEqualTo(PaymentMethod.PIX);
         }
 
         @Test
@@ -112,7 +134,7 @@ class OrderServiceIT {
             given(productClient.findById(productId)).willReturn(mockProduct(productId, 1));
 
             OrderRequest request = new OrderRequest(customerId,
-                    List.of(new OrderItemRequest(productId, 5)));
+                    List.of(new OrderItemRequest(productId, 5)), null);
 
             assertThatThrownBy(() -> orderService.create(request))
                     .isInstanceOf(BusinessRuleViolationException.class)

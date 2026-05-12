@@ -10,7 +10,7 @@ import com.ecommerce.payment.event.OrderCreatedEvent;
 import com.ecommerce.payment.exception.BusinessRuleViolationException;
 import com.ecommerce.payment.exception.PaymentNotFoundException;
 import com.ecommerce.payment.gateway.GatewayResult;
-import com.ecommerce.payment.gateway.PaymentGatewaySimulator;
+import com.ecommerce.payment.gateway.PaymentGatewayRouter;
 import com.ecommerce.payment.domain.ProcessedEvent;
 import com.ecommerce.payment.event.PaymentConfirmedEvent;
 import com.ecommerce.payment.event.PaymentEventPublisher;
@@ -37,8 +37,12 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final PaymentTransactionRepository transactionRepository;
     private final ProcessedEventRepository processedEventRepository;
-    private final PaymentGatewaySimulator gatewaySimulator;
+    private final PaymentGatewayRouter gatewayRouter;
     private final PaymentEventPublisher eventPublisher;
+
+    private static PaymentMethod resolvePaymentMethod(OrderCreatedEvent event) {
+        return event.paymentMethod() != null ? event.paymentMethod() : PaymentMethod.CREDIT_CARD;
+    }
 
     @Override
     @Transactional
@@ -88,11 +92,13 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private PaymentResponse doProcess(OrderCreatedEvent event) {
+        PaymentMethod method = resolvePaymentMethod(event);
+
         Payment payment = Payment.builder()
                 .orderId(event.orderId())
                 .customerId(event.customerId())
                 .amount(event.totalAmount())
-                .method(PaymentMethod.CREDIT_CARD)
+                .method(method)
                 .status(PaymentStatus.PENDING)
                 .build();
         payment = paymentRepository.save(payment);
@@ -102,9 +108,13 @@ public class PaymentServiceImpl implements PaymentService {
         payment = paymentRepository.save(payment);
         recordTransaction(payment);
 
-        GatewayResult result = gatewaySimulator.process(payment);
+        GatewayResult result = gatewayRouter.process(payment);
 
-        if (result.approved()) {
+        if (result.awaitingSettlement()) {
+            payment.setStatus(PaymentStatus.AWAITING_PAYMENT);
+            payment.setExternalTransactionId(result.externalTransactionId());
+            payment.setPaymentInstructions(result.paymentInstructions());
+        } else if (result.approved()) {
             payment.setStatus(PaymentStatus.PAID);
         } else {
             payment.setStatus(PaymentStatus.FAILED);
@@ -114,7 +124,10 @@ public class PaymentServiceImpl implements PaymentService {
         payment = paymentRepository.save(payment);
         recordTransaction(payment);
 
-        if (result.approved()) {
+        if (result.awaitingSettlement()) {
+            log.info("Payment awaiting settlement: orderId={}, externalId={}",
+                    event.orderId(), payment.getExternalTransactionId());
+        } else if (result.approved()) {
             eventPublisher.publishPaymentConfirmed(PaymentConfirmedEvent.from(payment));
         } else {
             eventPublisher.publishPaymentFailed(PaymentFailedEvent.from(payment));
@@ -170,11 +183,12 @@ public class PaymentServiceImpl implements PaymentService {
                         existing -> log.warn("Payment already persisted for DLT event: orderId={}, status={}",
                                 event.orderId(), existing.getStatus()),
                         () -> {
+                            PaymentMethod method = resolvePaymentMethod(event);
                             Payment payment = Payment.builder()
                                     .orderId(event.orderId())
                                     .customerId(event.customerId())
                                     .amount(event.totalAmount())
-                                    .method(PaymentMethod.CREDIT_CARD)
+                                    .method(method)
                                     .status(PaymentStatus.FAILED)
                                     .failureReason("Payment processing failed after all retries")
                                     .build();

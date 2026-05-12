@@ -10,12 +10,7 @@ import org.springframework.stereotype.Component;
 import java.util.Set;
 
 /**
- * Simulates a bank slip (boleto bancário) issuer.
- *
- * Behaviour:
- * - 2% chance of transient unavailability (PSP outage)
- * - Slip generation always succeeds when the provider is reachable;
- *   actual payment confirmation happens offline (out of scope for this simulation)
+ * Simulates boleto registration; settlement is asynchronous.
  */
 @Component
 public class BankSlipGatewayProvider implements GatewayProvider {
@@ -29,7 +24,12 @@ public class BankSlipGatewayProvider implements GatewayProvider {
                     "Bank slip issuer temporarily unavailable — orderId=" + payment.getOrderId());
         }
 
-        return GatewayResult.approved("Bank slip generated successfully");
+        String slipId = "sim-slip-" + payment.getOrderId();
+        String line = "34191.79001 01043.510047 91020.150008 1 843500" + payment.getAmount().toPlainString();
+        return GatewayResult.awaitingSettlement(
+                slipId,
+                line,
+                "Bank slip registered — awaiting settlement");
     }
 
     @Override

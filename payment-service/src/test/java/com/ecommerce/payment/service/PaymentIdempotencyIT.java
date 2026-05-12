@@ -8,7 +8,7 @@ import com.ecommerce.payment.event.OrderCreatedEvent;
 import com.ecommerce.payment.event.PaymentEventPublisher;
 import com.ecommerce.payment.exception.BusinessRuleViolationException;
 import com.ecommerce.payment.gateway.GatewayResult;
-import com.ecommerce.payment.gateway.PaymentGatewaySimulator;
+import com.ecommerce.payment.gateway.PaymentGatewayRouter;
 import com.ecommerce.payment.repository.PaymentRepository;
 import com.ecommerce.payment.repository.PaymentTransactionRepository;
 import com.ecommerce.payment.repository.ProcessedEventRepository;
@@ -66,7 +66,7 @@ class PaymentIdempotencyIT {
         registry.add("spring.cloud.config.enabled", () -> "false");
     }
 
-    @MockBean private PaymentGatewaySimulator gatewaySimulator;
+    @MockBean private PaymentGatewayRouter gatewayRouter;
     @MockBean private PaymentEventPublisher eventPublisher;
 
     @Autowired private PaymentService paymentService;
@@ -74,7 +74,7 @@ class PaymentIdempotencyIT {
     @Autowired private PaymentTransactionRepository transactionRepository;
     @Autowired private ProcessedEventRepository processedEventRepository;
 
-    private OrderCreatedEvent buildOrderEvent(String eventId, UUID orderId) {
+    private OrderCreatedEvent buildOrderEvent(String eventId, UUID orderId, PaymentMethod paymentMethod) {
         return new OrderCreatedEvent(
                 eventId,
                 "order.created",
@@ -83,8 +83,13 @@ class PaymentIdempotencyIT {
                 orderId,
                 UUID.randomUUID(),
                 new BigDecimal("250.00"),
-                List.of()
+                List.of(),
+                paymentMethod
         );
+    }
+
+    private OrderCreatedEvent buildOrderEvent(String eventId, UUID orderId) {
+        return buildOrderEvent(eventId, orderId, null);
     }
 
     // ── processFromEvent: approved ─────────────────────────────────────────────
@@ -96,7 +101,7 @@ class PaymentIdempotencyIT {
         @Test
         @DisplayName("creates payment with PAID status and publishes PaymentConfirmedEvent")
         void process_approved_persistsAndPublishes() {
-            given(gatewaySimulator.process(any())).willReturn(GatewayResult.approved("Approved"));
+            given(gatewayRouter.process(any())).willReturn(GatewayResult.approved("Approved"));
             doNothing().when(eventPublisher).publishPaymentConfirmed(any());
 
             String eventId = UUID.randomUUID().toString();
@@ -116,6 +121,22 @@ class PaymentIdempotencyIT {
             verify(eventPublisher).publishPaymentConfirmed(any());
             verify(eventPublisher, never()).publishPaymentFailed(any());
         }
+
+        @Test
+        @DisplayName("persists payment method from event when provided")
+        void process_usesPaymentMethodFromEvent() {
+            given(gatewayRouter.process(any())).willReturn(GatewayResult.approved("Approved"));
+            doNothing().when(eventPublisher).publishPaymentConfirmed(any());
+
+            String eventId = UUID.randomUUID().toString();
+            UUID orderId = UUID.randomUUID();
+
+            PaymentResponse response = paymentService.processFromEvent(
+                    buildOrderEvent(eventId, orderId, PaymentMethod.PIX));
+
+            assertThat(response.method()).isEqualTo(PaymentMethod.PIX);
+            assertThat(response.status()).isEqualTo(PaymentStatus.PAID);
+        }
     }
 
     // ── processFromEvent: declined ─────────────────────────────────────────────
@@ -127,7 +148,7 @@ class PaymentIdempotencyIT {
         @Test
         @DisplayName("creates payment with FAILED status and publishes PaymentFailedEvent")
         void process_declined_persistsAndPublishes() {
-            given(gatewaySimulator.process(any())).willReturn(GatewayResult.declined("Card declined"));
+            given(gatewayRouter.process(any())).willReturn(GatewayResult.declined("Card declined"));
             doNothing().when(eventPublisher).publishPaymentFailed(any());
 
             String eventId = UUID.randomUUID().toString();
@@ -144,6 +165,33 @@ class PaymentIdempotencyIT {
         }
     }
 
+    @Nested
+    @DisplayName("processFromEvent() — PIX awaiting settlement")
+    class ProcessAwaiting {
+
+        @Test
+        @DisplayName("creates payment AWAITING_PAYMENT without publishing confirmation")
+        void process_pix_awaiting_noConfirmationEvent() {
+            given(gatewayRouter.process(any())).willReturn(
+                    GatewayResult.awaitingSettlement("tx-1", "pix-copy-paste", "awaiting"));
+            doNothing().when(eventPublisher).publishPaymentConfirmed(any());
+
+            String eventId = UUID.randomUUID().toString();
+            UUID orderId = UUID.randomUUID();
+
+            PaymentResponse response = paymentService.processFromEvent(
+                    buildOrderEvent(eventId, orderId, PaymentMethod.PIX));
+
+            assertThat(response.status()).isEqualTo(PaymentStatus.AWAITING_PAYMENT);
+            assertThat(response.externalTransactionId()).isEqualTo("tx-1");
+            assertThat(response.paymentInstructions()).isEqualTo("pix-copy-paste");
+            assertThat(transactionRepository.findByPaymentIdOrderByCreatedAtAsc(response.id())).hasSize(3);
+
+            verify(eventPublisher, never()).publishPaymentConfirmed(any());
+            verify(eventPublisher, never()).publishPaymentFailed(any());
+        }
+    }
+
     // ── Idempotency ────────────────────────────────────────────────────────────
 
     @Nested
@@ -153,7 +201,7 @@ class PaymentIdempotencyIT {
         @Test
         @DisplayName("second call with same eventId returns existing payment without reprocessing")
         void processFromEvent_duplicateEventId_ignoredAndReturnsExisting() {
-            given(gatewaySimulator.process(any())).willReturn(GatewayResult.approved("Approved"));
+            given(gatewayRouter.process(any())).willReturn(GatewayResult.approved("Approved"));
             doNothing().when(eventPublisher).publishPaymentConfirmed(any());
 
             String eventId = UUID.randomUUID().toString();
@@ -167,7 +215,7 @@ class PaymentIdempotencyIT {
             assertThat(second.status()).isEqualTo(PaymentStatus.PAID);
 
             // Gateway and publisher invoked exactly once, not twice
-            verify(gatewaySimulator, times(1)).process(any());
+            verify(gatewayRouter, times(1)).process(any());
             verify(eventPublisher, times(1)).publishPaymentConfirmed(any());
         }
     }
@@ -181,7 +229,7 @@ class PaymentIdempotencyIT {
         @Test
         @DisplayName("throws BusinessRuleViolationException when payment already exists for orderId")
         void create_duplicateOrderId_throwsException() {
-            given(gatewaySimulator.process(any())).willReturn(GatewayResult.approved("Approved"));
+            given(gatewayRouter.process(any())).willReturn(GatewayResult.approved("Approved"));
             doNothing().when(eventPublisher).publishPaymentConfirmed(any());
 
             UUID orderId = UUID.randomUUID();

@@ -1,5 +1,7 @@
 package com.ecommerce.notification.event;
 
+import com.ecommerce.notification.domain.PaymentMethod;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -13,6 +15,7 @@ public record OrderCreatedEvent(
         UUID orderId,
         UUID customerId,
         BigDecimal totalAmount,
-        List<OrderItemEvent> items
+        List<OrderItemEvent> items,
+        PaymentMethod paymentMethod
 ) {
 }

@@ -1,4 +1,11 @@
 # payment-service specific configuration
+payment:
+  gateway: ${PAYMENT_GATEWAY:simulator}
+  bb:
+    base-url: ${BB_API_BASE_URL:}
+    oauth-token-url: ${BB_OAUTH_TOKEN_URL:}
+    webhook-secret-env: BB_WEBHOOK_SECRET
+
 spring:
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${PAYMENT_DB_PORT:25434}/payment_db

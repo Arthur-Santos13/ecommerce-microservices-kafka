@@ -45,6 +45,12 @@ public class Payment {
     @Column(length = 255)
     private String failureReason;
 
+    @Column(name = "external_transaction_id", length = 128)
+    private String externalTransactionId;
+
+    @Column(name = "payment_instructions", columnDefinition = "TEXT")
+    private String paymentInstructions;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

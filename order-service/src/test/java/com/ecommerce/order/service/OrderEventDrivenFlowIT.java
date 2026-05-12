@@ -80,7 +80,7 @@ class OrderEventDrivenFlowIT {
         doNothing().when(eventPublisher).publishOrderCreated(any());
 
         return orderService.create(new OrderRequest(customerId,
-                List.of(new OrderItemRequest(productId, 1))));
+                List.of(new OrderItemRequest(productId, 1)), null));
     }
 
     // ── PaymentConfirmedEvent ──────────────────────────────────────────────────
